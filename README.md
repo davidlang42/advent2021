@@ -4,7 +4,7 @@ https://adventofcode.com/2021
 
 Solved in rust as a learning exercise
 
-- [ ] Day 1
+- [x] Day 1
 - [ ] Day 2
 - [ ] Day 3
 - [ ] Day 4
