@@ -5,7 +5,7 @@ https://adventofcode.com/2021
 Solved in rust as a learning exercise
 
 - [x] Day 1
-- [ ] Day 2
+- [x] Day 2
 - [ ] Day 3
 - [ ] Day 4
 - [ ] Day 5

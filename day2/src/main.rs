@@ -12,6 +12,12 @@ struct Location {
     depth: u32
 }
 
+struct LocationWithAim {
+    horizontal: u32,
+    depth: u32,
+    aim: i32
+}
+
 enum Direction {
     Forward, Down, Up
 }
@@ -26,6 +32,8 @@ fn main() {
             .expect(&format!("Error parsing instruction {}", s))).collect();
         let location = process_instructions(&instructions);
         println!("Horizontal {}, Depth {}, Multiply {}", location.horizontal, location.depth, location.horizontal * location.depth);
+        let with_aim = process_instructions_with_aim(&instructions);
+        println!("(with aim) Horizontal {}, Depth {}, Multiply {}", with_aim.horizontal, with_aim.depth, with_aim.horizontal * with_aim.depth);
     } else {
         println!("Please provide 1 argument: Filename");
     }
@@ -58,6 +66,21 @@ fn process_instructions(instructions: &Vec<Instruction>) -> Location {
             Direction::Down => location.depth += instruction.distance,
             Direction::Up => location.depth -= instruction.distance,
             Direction::Forward => location.horizontal += instruction.distance,
+        }
+    }
+    location
+}
+
+fn process_instructions_with_aim(instructions: &Vec<Instruction>) -> LocationWithAim {
+    let mut location = LocationWithAim { horizontal: 0, depth: 0, aim: 0 };
+    for instruction in instructions.iter() {
+        match instruction.direction {
+            Direction::Down => location.aim += instruction.distance as i32,
+            Direction::Up => location.aim -= instruction.distance as i32,
+            Direction::Forward => {
+                location.horizontal += instruction.distance;
+                location.depth = (location.depth as i32 + instruction.distance as i32 * location.aim) as u32;
+            }
         }
     }
     location
