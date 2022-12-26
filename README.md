@@ -2,7 +2,7 @@
 
 https://adventofcode.com/2021
 
-Solved in rust as a learning exercise
+Solved in rust as an exercise
 
 - [x] Day 1
 - [x] Day 2
