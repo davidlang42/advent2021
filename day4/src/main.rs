@@ -22,19 +22,33 @@ fn main() {
         let mut sections = text.split("\r\n\r\n");
         let calls: Vec<usize> = sections.next().unwrap().split(",").map(|n| n.parse().unwrap()).collect();
         let mut boards: Vec<Board> = sections.map(|s| s.parse().unwrap()).collect();
+        let mut first = None;
+        let mut last = None;
         for call in calls {
-            for (i, board) in boards.iter_mut().enumerate() {
+            let mut i = 0;
+            while i < boards.len() {
+                let board = &mut boards[i];
                 board.mark(call);
                 if let Some(line) = board.complete() {
-                    let unmarked = board.unmarked();
-                    println!("Board #{} completed line {} with {}, leaving Σ{} unmarked with a score of: {}", i+1, line, call, unmarked, unmarked*call);
-                    return;
+                    if first.is_none() {
+                        first = Some((i, line.to_string(), call, board.unmarked()));
+                    }
+                    last = Some((i, line.to_string(), call, board.unmarked()));
+                    boards.remove(i);
+                } else {
+                    i += 1;
                 }
             }
         }
+        print_result("FIRST", first.unwrap());
+        print_result("LAST", last.unwrap());
     } else {
         println!("Please provide 1 argument: Filename");
     }
+}
+
+fn print_result(description: &str, r: (usize, String, usize, usize)) {
+    println!("Board #{} wins {}, completing line {} with {}, leaving Σ{} unmarked with a score of: {}", r.0+1, description, r.1, r.2, r.3, r.2*r.3);
 }
 
 impl FromStr for Board {
