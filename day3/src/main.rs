@@ -11,8 +11,7 @@ fn main() {
         let mut most = Vec::new();
         let mut least = Vec::new();
         for i in 0..numbers[0].len() {
-            let sum: usize = numbers.iter().map(|n| n[i]).sum();
-            if sum > numbers.len() / 2 {
+            if common_bit(&numbers, i, true) == 1 {
                 most.push('1');
                 least.push('0');
             } else {
@@ -22,8 +21,40 @@ fn main() {
         }
         let gamma = usize::from_str_radix(&most.iter().collect::<String>(), 2).unwrap();
         let epsilon = usize::from_str_radix(&least.iter().collect::<String>(), 2).unwrap();
-        println!("{:?} x {:?} = {}", most, least, gamma*epsilon);
+        println!("Power: {:?} x {:?} = {}", most, least, gamma*epsilon);
+        let oxygen = filter_until_single(numbers.clone(), 0, true);
+        let co2 = filter_until_single(numbers.clone(), 0, false);
+        let oxygen_decimal = usize::from_str_radix(&oxygen.iter().map(|d| (*d as u8 + '0' as u8) as char).collect::<String>(), 2).unwrap();
+        let co2_decimal = usize::from_str_radix(&co2.iter().map(|d| (*d as u8 + '0' as u8) as char).collect::<String>(), 2).unwrap();
+        println!("Life: {:?} x {:?} = {}", oxygen, co2, oxygen_decimal*co2_decimal);
     } else {
         println!("Please provide 1 argument: Filename");
+    }
+}
+
+fn common_bit(numbers: &Vec<Vec<usize>>, bit: usize, most: bool) -> usize {
+    let n1: usize = numbers.iter().map(|n| n[bit]).sum();
+    let n0 = numbers.len() - n1;
+    if n1 >= n0 {
+        if most {
+            1
+        } else {
+            0
+        }
+    } else {
+        if most {
+            0
+        } else {
+            1
+        }
+    }
+}
+
+fn filter_until_single(numbers: Vec<Vec<usize>>, bit: usize, most: bool) -> Vec<usize> {
+    if numbers.len() == 1 {
+        numbers.into_iter().next().unwrap()
+    } else {
+        let target = common_bit(&numbers, bit, most);
+        filter_until_single(numbers.into_iter().filter(|n| n[bit] == target).collect(), bit + 1, most)
     }
 }
