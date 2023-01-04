@@ -22,8 +22,11 @@ fn main() {
             .expect(&format!("Error reading from {}", filename));
         let lines: Vec<Line> = text.lines().map(|l| l.parse().unwrap()).collect();
         let simple = lines.iter().filter(|l| l.horizontal() || l.vertical()).collect();
-        let overlaps = find_overlaps(&simple);
-        println!("Found {} overlapping points", overlaps.len());
+        let simple_overlaps = find_overlaps(&simple);
+        println!("Orthogonal lines only: Found {} overlapping points", simple_overlaps.len());
+        let all = lines.iter().collect();
+        let all_overlaps = find_overlaps(&all);
+        println!("Include diagonals: Found {} overlapping points", all_overlaps.len());
     } else {
         println!("Please provide 1 argument: Filename");
     }
@@ -70,20 +73,23 @@ impl Line {
         self.from.y == self.to.y
     }
 
-    fn rect(&self) -> Vec<Point> {
+    fn points(&self) -> Vec<Point> {
         let mut points = Vec::new();
-        let min = Point {
-            x: *[self.from.x, self.to.x].iter().min().unwrap(),
-            y: *[self.from.y, self.to.y].iter().min().unwrap()
+        let (dx, dy) = if self.horizontal() {
+            (0, (self.to.y-self.from.y).signum())
+        } else if self.vertical() {
+            ((self.to.x-self.from.x).signum(), 0)
+        } else {
+            ((self.to.x-self.from.x).signum(), (self.to.y-self.from.y).signum())
         };
-        let max = Point {
-            x: *[self.from.x, self.to.x].iter().max().unwrap(),
-            y: *[self.from.y, self.to.y].iter().max().unwrap()
-        };
-        for x in min.x..(max.x+1) {
-            for y in min.y..(max.y+1) {
-                points.push(Point{x,y});
+        let mut p = self.from;
+        loop {
+            points.push(p);
+            if p == self.to {
+                break;
             }
+            p.x += dx;
+            p.y += dy;
         }
         points
     }
@@ -93,7 +99,7 @@ fn find_overlaps(lines: &Vec<&Line>) -> HashSet<Point> {
     let mut taken = HashSet::new();
     let mut overlaps = HashSet::new();
     for line in lines {
-        for point in line.rect() {
+        for point in line.points() {
             if !taken.insert(point) {
                 overlaps.insert(point);
             }
