@@ -8,11 +8,11 @@ fn main() {
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
         let mut fish: Vec<isize> = text.split(",").map(|n| n.parse().unwrap()).collect();
-        for _ in 0..80 {
+        for i in 0..256 {
             let mut new_fish = simulate(&mut fish);
             fish.append(&mut new_fish);
+            println!("Day #{} fish: {}", i+1, fish.len());
         }
-        println!("Fish: {}", fish.len());
     } else {
         println!("Please provide 1 argument: Filename");
     }
