@@ -120,20 +120,27 @@ impl Signal {
 
 impl WireMap {
     fn new<const N: usize>(input_signals: &[Signal; N], output_signals: &[Signal; N]) -> Self {
-        let mut possible = [[true; 7]; 7]; // anythings possible
-        let mut inputs: Vec<&Signal> = input_signals.iter().collect();
-        let mut outputs: Vec<&Signal> = output_signals.iter().collect();
+        let possible = [[true; 7]; 7]; // anythings possible
+        let inputs: Vec<&Signal> = input_signals.iter().collect();
+        let outputs: Vec<&Signal> = output_signals.iter().collect();
+        Self::solve(possible, inputs, outputs).expect("No solution found")
+    }
+
+    fn solve(initial_possible: [[bool; 7]; 7], initial_inputs: Vec<&Signal>, initial_outputs: Vec<&Signal>) -> Option<WireMap> {
+        let mut possible = initial_possible;
+        let mut inputs: Vec<&Signal> = initial_inputs;
+        let mut outputs: Vec<&Signal> = initial_outputs;
         while inputs.len() > 0 {
             let mut matched = false;
             for i in 0..inputs.len() {
                 let input: &Signal = inputs[i];
                 let possible_outputs: Vec<(usize, &&Signal)> = outputs.iter().enumerate().filter(|(_, output)| Self::could_be(&possible, input, output)).collect();
                 match possible_outputs.len() {
-                    0 => panic!("An input has no possible matching output"),
+                    0 => return None, // no possible matching output
                     1 => {
                         matched = true;
                         let (o, output) = possible_outputs[0];
-                        println!("Found match: {} with {}", input_signals.iter().position(|x| *x == *input).unwrap(), output_signals.iter().position(|x| *x == **output).unwrap());
+                        //println!("Found match: {} with {}", input_signals.iter().position(|x| *x == *input).unwrap(), output_signals.iter().position(|x| *x == **output).unwrap());
                         Self::map_segments(&mut possible, input, output);
                         inputs.remove(i);
                         outputs.remove(o);
@@ -143,14 +150,28 @@ impl WireMap {
                 }
             }
             if !matched {
-                panic!("You got trouble my friend");
+                let chosen_input = inputs[0];
+                let possible_outputs: Vec<(usize, &&Signal)> = outputs.iter().enumerate().filter(|(_, output)| Self::could_be(&possible, chosen_input, output)).collect();
+                for (o, chosen_output) in possible_outputs {
+                    let mut new_possible = possible.clone();
+                    let mut new_inputs = inputs.clone();
+                    new_inputs.remove(0);
+                    let mut new_outputs = outputs.clone();
+                    new_outputs.remove(o);
+                    if Self::map_segments(&mut new_possible, chosen_input, chosen_output) {
+                        if let Some(solution) = Self::solve(new_possible, new_inputs.clone(), new_outputs) {
+                            return Some(solution);
+                        }
+                    }
+                }
+                return None; // none of the available options worked
             }
         }
         let mut map = [0; 7];
         for m in 0..7 {
             map[m] = Self::definite(&possible[m]).expect("Map not complete");
         }
-        WireMap(map)
+        Some(WireMap(map))
     }
 
     fn could_be(possible: &[[bool; 7]; 7], input: &Signal, output: &Signal) -> bool {
@@ -189,7 +210,7 @@ impl WireMap {
         single
     }
 
-    fn map_segments(possible: &mut [[bool; 7]; 7], input_signal: &Signal, output_signal: &Signal) {
+    fn map_segments(possible: &mut [[bool; 7]; 7], input_signal: &Signal, output_signal: &Signal) -> bool {
         let mut inputs = input_signal.segments();
         let mut outputs = output_signal.segments();
         if inputs.len() != outputs.len() {
@@ -204,7 +225,7 @@ impl WireMap {
                     outputs.remove(o);
                     inputs.remove(i);
                 } else {
-                    panic!("Invalid mapping");
+                    return false; // invalid mapping
                 }
             } else {
                 i += 1;
@@ -218,5 +239,6 @@ impl WireMap {
                 }
             }
         }
+        true
     }
 }
