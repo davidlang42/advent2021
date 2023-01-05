@@ -102,7 +102,8 @@ impl Signal {
     fn decode(&self, map: &WireMap) -> Signal {
         let mut signal = [false; 7];
         for i in 0..7 {
-            signal[i] = self.0[map.0[i]]; //TODO this might be backwards?
+            let pos = map.0.iter().position(|o| *o == i).unwrap();
+            signal[i] = self.0[pos];
         }
         Signal(signal)
     }
