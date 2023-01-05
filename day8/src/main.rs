@@ -10,13 +10,7 @@ struct Entry {
 #[derive(Debug, PartialEq, Eq)]
 struct Signal([bool; 7]);
 
-struct WireMap([PartialMap; 7]);
-
-#[derive(Copy, Clone)]
-enum PartialMap {
-    Definite(usize),
-    CouldBe([bool; 7])
-}
+struct WireMap([usize; 7]);
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -47,19 +41,7 @@ fn main() {
         ];
         let mut sum = 0;
         for entry in entries {
-            let mut wire_map = WireMap::new(); //TODO &entry.unique, &digits);
-            for unique in &entry.unique {
-                let easy_match = match unique.segments().len() {
-                    2 => Some(&digits[1]), // "1"
-                    4 => Some(&digits[4]), // "4"
-                    3 => Some(&digits[7]), // "7"
-                    7 => Some(&digits[8]), // "8"
-                    _ => None
-                };
-                if let Some(actual) = easy_match {
-                    wire_map.map(unique, actual);
-                }
-            } 
+            let wire_map = WireMap::new(&entry.unique, &digits);
             let mut output = 0;
             for raw in &entry.output {
                 let decoded = raw.decode(&wire_map);
@@ -120,11 +102,7 @@ impl Signal {
     fn decode(&self, map: &WireMap) -> Signal {
         let mut signal = [false; 7];
         for i in 0..7 {
-            if let PartialMap::Definite(new_i) = map.0[i] {
-                signal[i] = self.0[new_i]; //TODO this might be backwards?
-            } else {
-                panic!("Cannot decode with an incomplete map");
-            }
+            signal[i] = self.0[map.0[i]]; //TODO this might be backwards?
         }
         Signal(signal)
     }
@@ -138,30 +116,92 @@ impl Signal {
         }
         seggs
     }
-
-    // fn could_be(&self, map: &WireMap) -> bool {
-
-    // }
 }
 
 impl WireMap {
-    fn new() -> Self {
-        WireMap([PartialMap::CouldBe([true; 7]); 7])
+    fn new<const N: usize>(input_signals: &[Signal; N], output_signals: &[Signal; N]) -> Self {
+        let mut possible = [[true; 7]; 7]; // anythings possible
+        let mut inputs: Vec<&Signal> = input_signals.iter().collect();
+        let mut outputs: Vec<&Signal> = output_signals.iter().collect();
+        while inputs.len() > 0 {
+            let mut matched = false;
+            for i in 0..inputs.len() {
+                let input: &Signal = inputs[i];
+                let possible_outputs: Vec<(usize, &&Signal)> = outputs.iter().enumerate().filter(|(_, output)| Self::could_be(&possible, input, output)).collect();
+                match possible_outputs.len() {
+                    0 => panic!("An input has no possible matching output"),
+                    1 => {
+                        matched = true;
+                        let (o, output) = possible_outputs[0];
+                        println!("Found match: {} with {}", input_signals.iter().position(|x| *x == *input).unwrap(), output_signals.iter().position(|x| *x == **output).unwrap());
+                        Self::map_segments(&mut possible, input, output);
+                        inputs.remove(i);
+                        outputs.remove(o);
+                        break;
+                    },
+                    _ => {}
+                }
+            }
+            if !matched {
+                panic!("You got trouble my friend");
+            }
+        }
+        let mut map = [0; 7];
+        for m in 0..7 {
+            map[m] = Self::definite(&possible[m]).expect("Map not complete");
+        }
+        WireMap(map)
     }
 
-    fn map(&mut self, input_signal: &Signal, output_signal: &Signal) {
+    fn could_be(possible: &[[bool; 7]; 7], input: &Signal, output: &Signal) -> bool {
+        if input.segments().len() != output.segments().len() {
+            return false;
+        }
+        for i in input.segments() {
+            let mut found = false;
+            for o in output.segments() {
+                if possible[i][o] {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn definite(options: &[bool; 7]) -> Option<usize> {
+        let mut single = None;
+        for i in 0..7 {
+            if options[i] {
+                if single.is_none() {
+                    single = Some(i);
+                } else {
+                    return None; // more than one option
+                }
+            }
+        }
+        if single.is_none() {
+            panic!("No options available");
+        }
+        single
+    }
+
+    fn map_segments(possible: &mut [[bool; 7]; 7], input_signal: &Signal, output_signal: &Signal) {
         let mut inputs = input_signal.segments();
         let mut outputs = output_signal.segments();
         if inputs.len() != outputs.len() {
-            panic!("Cannot map signals with different segment counts");
+            panic!("Cannot map with different segment counts");
         }
         // remove any already mapped inputs and their respective output
         let mut i = 0;
         while i < inputs.len() {
             let input = inputs[i];
-            if let PartialMap::Definite(output) = self.0[input] {
-                if let Some(pos) = outputs.iter().position(|o| *o == output) {
-                    outputs.remove(pos);
+            if let Some(output) = Self::definite(&possible[input]) {
+                if let Some(o) = outputs.iter().position(|o| *o == output) {
+                    outputs.remove(o);
                     inputs.remove(i);
                 } else {
                     panic!("Invalid mapping");
@@ -172,25 +212,10 @@ impl WireMap {
         }
         // mark each remaining input as only possibly mapping to any of the remaining outputs
         for input in inputs {
-            if let PartialMap::CouldBe(old) = self.0[input] {
-                let mut new = [false; 7];
-                let mut remaining = Vec::new();
-                for output in &outputs {
-                    if old[*output] {
-                        // this 'input' could still map to this 'output'
-                        new[*output] = true;
-                        remaining.push(output);
-                    }
+            for output in 0..7 {
+                if outputs.iter().position(|o| *o == output).is_none() {
+                    possible[input][output] = false;
                 }
-                self.0[input] = if remaining.len() == 0 {
-                    panic!("No options remaining");
-                } else if remaining.len() == 1 {
-                    PartialMap::Definite(*remaining[0])
-                } else {
-                    PartialMap::CouldBe(new)
-                };
-            } else {
-                panic!("Definite found while updating CouldBe's");
             }
         }
     }
