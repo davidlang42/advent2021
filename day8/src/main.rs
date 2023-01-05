@@ -1,13 +1,15 @@
 use std::env;
 use std::fs;
 use std::str::FromStr;
+use itertools::Itertools;
+use std::collections::HashSet;
 
 struct Entry {
     unique: [Signal; 10],
     output: [Signal; 4]
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Hash, Debug, PartialEq, Eq)]
 struct Signal([bool; 7]);
 
 struct WireMap([usize; 7]);
@@ -121,167 +123,24 @@ impl Signal {
 
 impl WireMap {
     fn new<const N: usize>(input_signals: &[Signal; N], output_signals: &[Signal; N]) -> Self {
-        let possible = [[true; 7]; 7]; // anythings possible
-        let inputs: Vec<&Signal> = input_signals.iter().collect();
-        let outputs: Vec<&Signal> = output_signals.iter().collect();
-        Self::solve(possible, inputs, outputs).expect("No solution found")
+        for map in Self::enumerate() {
+            let mut remaining_outputs: HashSet<&Signal> = output_signals.iter().collect();
+            let mut valid = true;
+            for input in input_signals {
+                let output = input.decode(&map);
+                if !remaining_outputs.remove(&output) {
+                    valid = false;
+                    break;
+                }
+            }
+            if valid {
+                return map;
+            }
+        }
+        panic!("No valid map found");
     }
 
-    fn solve(initial_possible: [[bool; 7]; 7], initial_inputs: Vec<&Signal>, initial_outputs: Vec<&Signal>) -> Option<WireMap> {
-        let mut possible = initial_possible;
-        let mut inputs: Vec<&Signal> = initial_inputs;
-        let mut outputs: Vec<&Signal> = initial_outputs;
-        while inputs.len() > 0 {
-            let mut matched = false;
-            for i in 0..inputs.len() {
-                let input: &Signal = inputs[i];
-                let possible_outputs: Vec<(usize, &&Signal)> = outputs.iter().enumerate().filter(|(_, output)| Self::could_be(&possible, input, output)).collect();
-                match possible_outputs.len() {
-                    0 => return None, // no possible matching output
-                    1 => {
-                        matched = true;
-                        let (o, output) = possible_outputs[0];
-                        //println!("Found match: {} with {}", input_signals.iter().position(|x| *x == *input).unwrap(), output_signals.iter().position(|x| *x == **output).unwrap());
-                        if !Self::map_segments(&mut possible, input, output) {
-                            panic!("map_segments failed");
-                        }
-                        inputs.remove(i);
-                        outputs.remove(o);
-                        break;
-                    },
-                    _ => {}
-                }
-            }
-            if !matched {
-                let chosen_input = inputs[0];
-                let possible_outputs: Vec<(usize, &&Signal)> = outputs.iter().enumerate().filter(|(_, output)| Self::could_be(&possible, chosen_input, output)).collect();
-                for (o, chosen_output) in possible_outputs {
-                    let mut new_possible = possible.clone();
-                    let mut new_inputs = inputs.clone();
-                    new_inputs.remove(0);
-                    let mut new_outputs = outputs.clone();
-                    new_outputs.remove(o);
-                    if Self::map_segments(&mut new_possible, chosen_input, chosen_output) {
-                        if let Some(solution) = Self::solve(new_possible, new_inputs, new_outputs) {
-                            return Some(solution);
-                        }
-                    }
-                }
-                return None; // none of the available options worked
-            }
-        }
-        let mut map = [0; 7];
-        for m in 0..7 {
-            map[m] = Self::definite(&possible[m]).expect("Map not complete");
-        }
-        Some(WireMap(map))
-    }
-
-    fn could_be(possible: &[[bool; 7]; 7], input: &Signal, output: &Signal) -> bool {
-        let input_segments = input.segments();
-        let output_segments = output.segments();
-        if input_segments.len() != output_segments.len() {
-            return false;
-        }
-        Self::check(possible.clone(), input_segments, output_segments)
-    }
-
-    fn check(initial_possible: [[bool; 7]; 7], input_segments: Vec<usize>, output_segments: Vec<usize>) -> bool {
-        let mut possible = initial_possible;
-        let mut inputs = input_segments;
-        let mut outputs = output_segments;
-        while inputs.len() > 0 {
-            let mut matched = false;
-            for i in 0..inputs.len() {
-                let input = inputs[i];
-                let possible_outputs: Vec<(usize, &usize)> = outputs.iter().enumerate().filter(|(_, output)| possible[input][**output]).collect();
-                match possible_outputs.len() {
-                    0 => return false, // no possible matching output
-                    1 => {
-                        matched = true;
-                        let (o, output) = possible_outputs[0];
-                        Self::map_segment(&mut possible, input, *output);
-                        inputs.remove(i);
-                        outputs.remove(o);
-                        break;
-                    },
-                    _ => {}
-                }
-            }
-            if !matched {
-                let chosen_input = inputs[0];
-                let possible_outputs: Vec<(usize, &usize)> = outputs.iter().enumerate().filter(|(_, output)| possible[chosen_input][**output]).collect();
-                for (o, chosen_output) in possible_outputs {
-                    let mut new_possible = possible.clone();
-                    let mut new_inputs = inputs.clone();
-                    new_inputs.remove(0);
-                    let mut new_outputs = outputs.clone();
-                    new_outputs.remove(o);
-                    Self::map_segment(&mut new_possible, chosen_input, *chosen_output);
-                    if Self::check(new_possible, new_inputs, new_outputs) {
-                        return true;
-                    }
-                }
-                return false; // none of the available options worked
-            }
-        }
-        true
-    }
-
-    fn definite(options: &[bool; 7]) -> Option<usize> {
-        let mut single = None;
-        for i in 0..7 {
-            if options[i] {
-                if single.is_none() {
-                    single = Some(i);
-                } else {
-                    return None; // more than one option
-                }
-            }
-        }
-        if single.is_none() {
-            panic!("No options available");
-        }
-        single
-    }
-
-    fn map_segments(possible: &mut [[bool; 7]; 7], input_signal: &Signal, output_signal: &Signal) -> bool {
-        let mut inputs = input_signal.segments();
-        let mut outputs = output_signal.segments();
-        if inputs.len() != outputs.len() {
-            panic!("Cannot map with different segment counts");
-        }
-        // remove any already mapped inputs and their respective output
-        let mut i = 0;
-        while i < inputs.len() {
-            let input = inputs[i];
-            if let Some(output) = Self::definite(&possible[input]) {
-                if let Some(o) = outputs.iter().position(|o| *o == output) {
-                    outputs.remove(o);
-                    inputs.remove(i);
-                } else {
-                    return false; // invalid mapping
-                }
-            } else {
-                i += 1;
-            }
-        }
-        // mark each remaining input as only possibly mapping to any of the remaining outputs
-        for input in inputs {
-            for output in 0..7 {
-                if outputs.iter().position(|o| *o == output).is_none() {
-                    possible[input][output] = false;
-                }
-            }
-        }
-        true
-    }
-
-    fn map_segment(possible: &mut [[bool; 7]; 7], input: usize, output: usize) {
-        for i in 0..7 {
-            if i != input {
-                possible[i][output] = false;
-            }
-        }
+    fn enumerate() -> Vec<Self> {
+        [0,1,2,3,4,5,6].iter().permutations(7).map(|m| WireMap(m.iter().map(|v| **v).collect::<Vec<usize>>().try_into().unwrap())).collect()
     }
 }
