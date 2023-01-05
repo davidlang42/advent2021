@@ -142,7 +142,9 @@ impl WireMap {
                         matched = true;
                         let (o, output) = possible_outputs[0];
                         //println!("Found match: {} with {}", input_signals.iter().position(|x| *x == *input).unwrap(), output_signals.iter().position(|x| *x == **output).unwrap());
-                        Self::map_segments(&mut possible, input, output);
+                        if !Self::map_segments(&mut possible, input, output) {
+                            panic!("map_segments failed");
+                        }
                         inputs.remove(i);
                         outputs.remove(o);
                         break;
@@ -160,7 +162,7 @@ impl WireMap {
                     let mut new_outputs = outputs.clone();
                     new_outputs.remove(o);
                     if Self::map_segments(&mut new_possible, chosen_input, chosen_output) {
-                        if let Some(solution) = Self::solve(new_possible, new_inputs.clone(), new_outputs) {
+                        if let Some(solution) = Self::solve(new_possible, new_inputs, new_outputs) {
                             return Some(solution);
                         }
                     }
@@ -176,19 +178,51 @@ impl WireMap {
     }
 
     fn could_be(possible: &[[bool; 7]; 7], input: &Signal, output: &Signal) -> bool {
-        if input.segments().len() != output.segments().len() {
+        let input_segments = input.segments();
+        let output_segments = output.segments();
+        if input_segments.len() != output_segments.len() {
             return false;
         }
-        for i in input.segments() {
-            let mut found = false;
-            for o in output.segments() {
-                if possible[i][o] {
-                    found = true;
-                    break;
+        Self::check(possible.clone(), input_segments, output_segments)
+    }
+
+    fn check(initial_possible: [[bool; 7]; 7], input_segments: Vec<usize>, output_segments: Vec<usize>) -> bool {
+        let mut possible = initial_possible;
+        let mut inputs = input_segments;
+        let mut outputs = output_segments;
+        while inputs.len() > 0 {
+            let mut matched = false;
+            for i in 0..inputs.len() {
+                let input = inputs[i];
+                let possible_outputs: Vec<(usize, &usize)> = outputs.iter().enumerate().filter(|(_, output)| possible[input][**output]).collect();
+                match possible_outputs.len() {
+                    0 => return false, // no possible matching output
+                    1 => {
+                        matched = true;
+                        let (o, output) = possible_outputs[0];
+                        Self::map_segment(&mut possible, input, *output);
+                        inputs.remove(i);
+                        outputs.remove(o);
+                        break;
+                    },
+                    _ => {}
                 }
             }
-            if !found {
-                return false;
+            if !matched {
+                let chosen_input = inputs[0];
+                let possible_outputs: Vec<(usize, &usize)> = outputs.iter().enumerate().filter(|(_, output)| possible[chosen_input][**output]).collect();
+                for (o, chosen_output) in possible_outputs {
+                    let mut new_possible = possible.clone();
+                    let mut new_inputs = inputs.clone();
+                    new_inputs.remove(0);
+                    let mut new_outputs = outputs.clone();
+                    new_outputs.remove(o);
+                    Self::map_segment(&mut new_possible, chosen_input, *chosen_output);
+                    if Self::check(new_possible, new_inputs, new_outputs) {
+                        return true;
+                    }
+                }
+                return false; // none of the available options worked
             }
         }
         true
@@ -241,5 +275,13 @@ impl WireMap {
             }
         }
         true
+    }
+
+    fn map_segment(possible: &mut [[bool; 7]; 7], input: usize, output: usize) {
+        for i in 0..7 {
+            if i != input {
+                possible[i][output] = false;
+            }
+        }
     }
 }
