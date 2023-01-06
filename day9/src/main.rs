@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use std::str::FromStr;
+use std::collections::HashSet;
 
 struct Map {
     values: Vec<Vec<u32>>,
@@ -8,10 +9,13 @@ struct Map {
     height: isize
 }
 
+#[derive(Hash, Eq, PartialEq, Clone)]
 struct Point {
     x: isize,
     y: isize
 }
+
+struct Basin(HashSet<Point>);
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,6 +27,14 @@ fn main() {
         let points = map.find_low_points();
         let sum: u32 = points.iter().map(|p| map.get_value(p).unwrap() + 1).sum();
         println!("{} low points with a total risk of {}", points.len(), sum);
+        let mut sizes = Vec::new();
+        for p in points {
+            let basin = map.find_basin(&p);
+            sizes.push(basin.size())
+        }
+        sizes.sort();
+        sizes.reverse();
+        println!("3 largest basins: {}x{}x{} = {}", sizes[0], sizes[1], sizes[2], sizes[0]*sizes[1]*sizes[2]);
     } else {
         println!("Please provide 1 argument: Filename");
     }
@@ -64,6 +76,26 @@ impl Map {
         }
         points
     }
+
+    fn find_basin(&self, point: &Point) -> Basin {
+        let mut points = HashSet::new();
+        self.expand_basin(&mut points, point.clone());
+        Basin(points)
+    }
+
+    fn expand_basin(&self, points: &mut HashSet<Point>, p: Point) {
+        let v = self.get_value(&p).unwrap();
+        let adjacent = vec![p.up(), p.left(), p.right(), p.down()];
+        if points.insert(p) {
+            for a in adjacent {
+                if let Some(a_v) = self.get_value(&a) {
+                    if a_v > v && a_v != 9 {
+                        self.expand_basin(points, a);
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl Point {
@@ -93,5 +125,11 @@ impl Point {
             x: self.x + 1,
             y: self.y
         }
+    }
+}
+
+impl Basin {
+    fn size(&self) -> usize {
+        self.0.len()
     }
 }
