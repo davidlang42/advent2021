@@ -21,15 +21,27 @@ fn main() {
         let filename = &args[1];
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
-        let mut score = 0;
+        let mut syntax_score = 0;
+        let mut auto_scores = Vec::new();
         for line in text.lines() {
             match parse_line(line) {
                 ParseResult::Valid => {},
                 ParseResult::Incomplete { open } => {
-                    println!("{}: Incomplete {:?}", line, open);
+                    let mut score: u64 = 0;
+                    for close in open.iter().rev() {
+                        score *= 5;
+                        score += match close {
+                            Bracket::Round => 1,
+                            Bracket::Square => 2,
+                            Bracket::Brace => 3,
+                            Bracket::Arrow => 4
+                        };
+                    }
+                    auto_scores.push(score);
+                    println!("{}: Incomplete score {}", line, score);
                 },
                 ParseResult::Corrupted { found, expected } => {
-                    score += match found {
+                    syntax_score += match found {
                         Bracket::Round => 3,
                         Bracket::Square => 57,
                         Bracket::Brace => 1197,
@@ -39,7 +51,9 @@ fn main() {
                 }
             }
         }
-        println!("Total score: {}", score);
+        println!("Total syntax score: {}", syntax_score);
+        auto_scores.sort();
+        println!("Middle autocomplete score: {}", auto_scores[auto_scores.len()/2]);
     } else {
         println!("Please provide 1 argument: Filename");
     }
