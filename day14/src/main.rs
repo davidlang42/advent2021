@@ -8,7 +8,10 @@ struct Propogation {
     create: char
 }
 
-struct PropogationMap(HashMap<(char, char), char>);
+struct PropogationMap {
+    map: HashMap<(char, char), char>,
+    cached_inner: HashMap<(char, char, usize), HashMap<char, usize>>
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -19,7 +22,7 @@ fn main() {
         let segments: Vec<&str> = text.split("\r\n\r\n").collect();
         let template: Vec<char> = segments[0].chars().collect();
         let propogations: Vec<Propogation> = segments[1].lines().map(|l| l.parse().unwrap()).collect();
-        let map = PropogationMap::new(&propogations);
+        let mut map = PropogationMap::new(&propogations);
         let steps: usize = args[2].parse().unwrap();
         let counts = map.propogate(&template, steps);
         println!("Length after step {}: {}", steps, counts.values().sum::<usize>());
@@ -54,10 +57,13 @@ impl PropogationMap {
         for propogation in propogations {
             map.insert(propogation.pair, propogation.create);
         }
-        PropogationMap(map)
+        PropogationMap {
+            map,
+            cached_inner: HashMap::new()
+        }
     }
     
-    fn propogate(&self, template: &Vec<char>, steps: usize) -> HashMap<char, usize> {
+    fn propogate(&mut self, template: &Vec<char>, steps: usize) -> HashMap<char, usize> {
         let mut previous = template[0];
         let mut counts = HashMap::new();
         increment(&mut counts, previous, 1);
@@ -70,18 +76,23 @@ impl PropogationMap {
         counts
     }
 
-    fn inner(&self, previous: char, next: char, steps: usize) -> HashMap<char, usize> {
-        let mut counts = HashMap::new();
-        if steps > 0 {
-            if let Some(&create) = self.0.get(&(previous, next)) {
-                combine(&mut counts, &self.inner(previous, create, steps - 1));
-                increment(&mut counts, create, 1);
-                combine(&mut counts, &self.inner(create, next, steps - 1));
-            } else {
-                // nothing gets added here
+    fn inner(&mut self, previous: char, next: char, steps: usize) -> HashMap<char, usize> {
+        if let Some(cached) = self.cached_inner.get(&(previous, next, steps)) {
+            cached.clone()
+        } else {
+            let mut counts = HashMap::new();
+            if steps > 0 {
+                if let Some(&create) = self.map.get(&(previous, next)) {
+                    combine(&mut counts, &self.inner(previous, create, steps - 1));
+                    increment(&mut counts, create, 1);
+                    combine(&mut counts, &self.inner(create, next, steps - 1));
+                } else {
+                    // nothing gets added here
+                }
             }
+            self.cached_inner.insert((previous, next, steps), counts.clone());
+            counts
         }
-        counts
     }
 }
 
