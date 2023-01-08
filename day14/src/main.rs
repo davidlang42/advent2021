@@ -52,32 +52,40 @@ impl FromStr for Propogation {
 fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char>, steps: usize) -> HashMap<char, usize> {
     let mut previous = existing[0];
     let mut counts = HashMap::new();
-    increment(&mut counts, previous);
+    increment(&mut counts, previous, 1);
     for i in 1..existing.len() {
         let next = existing[i];
-        increment(&mut counts, next);
-        inner(&mut counts, previous, next, propogations, steps);
+        increment(&mut counts, next, 1);
+        for (k, v) in inner(previous, next, propogations, steps) {
+            increment(&mut counts, k, v);
+        }
         previous = next;
     }
     counts
 }
 
-fn inner(counts: &mut HashMap<char, usize>, previous: char, next: char, propogations: &HashMap<(char, char), char>, steps: usize) {
+fn inner(previous: char, next: char, propogations: &HashMap<(char, char), char>, steps: usize) -> HashMap<char, usize> {
+    let mut counts = HashMap::new();
     if steps > 0 {
         if let Some(&create) = propogations.get(&(previous, next)) {
-            inner(counts, previous, create, propogations, steps - 1);
-            increment(counts, create);
-            inner(counts, create, next, propogations, steps - 1);
+            for (k, v) in inner(previous, create, propogations, steps - 1) {
+                increment(&mut counts, k, v);
+            }
+            increment(&mut counts, create, 1);
+            for (k, v) in inner(create, next, propogations, steps - 1) {
+                increment(&mut counts, k, v);
+            }
         } else {
             // nothing gets added here
         }
     }
+    counts
 }
 
-fn increment(counts: &mut HashMap<char, usize>, key: char) {
+fn increment(counts: &mut HashMap<char, usize>, key: char, delta: usize) {
     if let Some(existing) = counts.get(&key) {
-        counts.insert(key, existing + 1);
+        counts.insert(key, existing + delta);
     } else {
-        counts.insert(key, 1);
+        counts.insert(key, delta);
     }
 }
