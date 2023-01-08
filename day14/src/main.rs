@@ -15,16 +15,15 @@ fn main() {
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
         let segments: Vec<&str> = text.split("\r\n\r\n").collect();
-        let mut polymer: Vec<char> = segments[0].chars().collect();
+        let template: Vec<char> = segments[0].chars().collect();
         let propogations: Vec<Propogation> = segments[1].lines().map(|l| l.parse().unwrap()).collect();
         let mut map = HashMap::new();
         for propogation in propogations {
             map.insert(propogation.pair, propogation.create);
         }
         let steps: usize = args[2].parse().unwrap();
-        polymer = propogate(&polymer, &map, steps);
-        println!("Length after step {}: {}", steps, polymer.len());
-        let counts = analyse(&polymer);
+        let counts = propogate(&template, &map, steps);
+        println!("Length after step {}: {}", steps, counts.values().sum::<usize>());
         let min = counts.values().min().unwrap();
         let max = counts.values().max().unwrap();
         println!("{} - {} = {}", max, min, max-min);
@@ -50,40 +49,35 @@ impl FromStr for Propogation {
     }
 }
 
-fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char>, steps: usize) -> Vec<char> {
+fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char>, steps: usize) -> HashMap<char, usize> {
     let mut previous = existing[0];
-    let mut new = vec![previous];
+    let mut counts = HashMap::new();
+    increment(&mut counts, previous);
     for i in 1..existing.len() {
         let next = existing[i];
-        new.append(&mut inner(previous, next, propogations, steps));
-        new.push(next);
+        increment(&mut counts, next);
+        inner(&mut counts, previous, next, propogations, steps);
         previous = next;
     }
-    new
+    counts
 }
 
-fn inner(previous: char, next: char, propogations: &HashMap<(char, char), char>, steps: usize) -> Vec<char> {
-    let mut new = Vec::new();
+fn inner(counts: &mut HashMap<char, usize>, previous: char, next: char, propogations: &HashMap<(char, char), char>, steps: usize) {
     if steps > 0 {
         if let Some(&create) = propogations.get(&(previous, next)) {
-            new.append(&mut inner(previous, create, propogations, steps - 1));
-            new.push(create);
-            new.append(&mut inner(create, next, propogations, steps - 1));
+            inner(counts, previous, create, propogations, steps - 1);
+            increment(counts, create);
+            inner(counts, create, next, propogations, steps - 1);
         } else {
             // nothing gets added here
         }
     }
-    new
 }
 
-fn analyse(polymer: &Vec<char>) -> HashMap<char, usize> {
-    let mut counts = HashMap::new();
-    for c in polymer {
-        if let Some(existing) = counts.get(c) {
-            counts.insert(*c, existing + 1);
-        } else {
-            counts.insert(*c, 1);
-        }
+fn increment(counts: &mut HashMap<char, usize>, key: char) {
+    if let Some(existing) = counts.get(&key) {
+        counts.insert(key, existing + 1);
+    } else {
+        counts.insert(key, 1);
     }
-    counts
 }
