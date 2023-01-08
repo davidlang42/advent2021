@@ -23,7 +23,7 @@ fn main() {
         }
         let steps: usize = args[2].parse().unwrap();
         for i in 0..steps {
-            polymer = propogate(&polymer, &map);
+            propogate(&mut polymer, &map);
             println!("Length after step {}: {}", i+1, polymer.len());
         }
         let counts = analyse(&polymer);
@@ -52,18 +52,19 @@ impl FromStr for Propogation {
     }
 }
 
-fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char> ) -> Vec<char> {
-    let mut previous = existing[0];
-    let mut new = vec![previous];
-    for i in 1..existing.len() {
-        let next = existing[i];
+fn propogate(polymer: &mut Vec<char>, propogations: &HashMap<(char, char), char> ) {
+    let mut previous = polymer[0];
+    let mut i = 1;
+    while i < polymer.len() {
+        let next = polymer[i];
         if let Some(create) = propogations.get(&(previous, next)) {
-            new.push(*create);
+            polymer.insert(i, *create);
+            i += 2;
+        } else {
+            i += 1;
         }
-        new.push(next);
         previous = next;
     }
-    new
 }
 
 fn analyse(polymer: &Vec<char>) -> HashMap<char, usize> {
