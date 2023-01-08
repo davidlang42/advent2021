@@ -25,7 +25,14 @@ struct Connection(String, String);
 #[derive(Clone)]
 struct Path {
     order: Vec<String>,
-    visited: HashSet<String>
+    visited: HashSet<String>,
+    double_visited: Option<String>
+}
+
+#[derive(PartialEq)]
+enum PathType {
+    AllSmallCavesOnce,
+    SingleSmallCaveTwice
 }
 
 fn main() {
@@ -36,8 +43,10 @@ fn main() {
             .expect(&format!("Error reading from {}", filename));
         let connections: Vec<Connection> = text.lines().map(|l| l.parse().unwrap()).collect();
         let system = System::new(&connections);
-        let paths = system.find_all_paths("start", "end", &Path::new());
-        println!("Found {} paths", paths.len());
+        let mut paths = system.find_all_paths("start", "end", &Path::new(), &PathType::AllSmallCavesOnce);
+        println!("Found {} paths with small caves once", paths.len());
+        paths = system.find_all_paths("start", "end", &Path::new(), &PathType::SingleSmallCaveTwice);
+        println!("Found {} paths with one small cave twice", paths.len());
     } else {
         println!("Please provide 1 argument: Filename");
     }
@@ -93,18 +102,18 @@ impl System {
         cave_connections.insert(to.to_string());
     }
 
-    fn find_all_paths(&self, from: &str, to: &str, base_path: &Path) -> Vec<Path> {
+    fn find_all_paths(&self, from: &str, to: &str, base_path: &Path, path_type: &PathType) -> Vec<Path> {
         let mut path = base_path.clone();
         if from == to {
             return vec![path]; // this path is complete
         }
         let mut paths = Vec::new();
         let cave = self.caves.get(from).unwrap();
-        if !path.visit(cave) {
+        if !path.visit(cave, path_type) {
             return paths; // no valid paths
         }
         for next in self.connections.get(from).unwrap() {
-            paths.append(&mut self.find_all_paths(next, to, &path));
+            paths.append(&mut self.find_all_paths(next, to, &path, path_type));
         }
         paths
     }
@@ -125,16 +134,22 @@ impl Path {
     fn new() -> Self {
         Self {
             order: Vec::new(),
-            visited: HashSet::new()
+            visited: HashSet::new(),
+            double_visited: None
         }
     }
 
-    fn visit(&mut self, next: &Cave) -> bool { // returns true if valid
-        if next.size == CaveSize::Big || self.visited.insert(next.name.to_string()) { // big caves can be visited more than once
-            self.order.push(next.name.to_string());
-            true
-        } else {
-            false
+    fn visit(&mut self, next: &Cave, path_type: &PathType) -> bool { // returns true if valid
+        if next.size == CaveSize::Small { // big caves can be visited more than once
+            if !self.visited.insert(next.name.to_string()) {
+                if *path_type == PathType::SingleSmallCaveTwice && self.double_visited.is_none() && next.name != "start" && next.name != "end" {
+                    self.double_visited = Some(next.name.to_string());
+                } else {
+                    return false;
+                }
+            }
         }
+        self.order.push(next.name.to_string());
+        true
     }
 }
