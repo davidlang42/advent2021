@@ -22,10 +22,8 @@ fn main() {
             map.insert(propogation.pair, propogation.create);
         }
         let steps: usize = args[2].parse().unwrap();
-        for i in 0..steps {
-            polymer = propogate(&polymer, &map);
-            println!("Length after step {}: {}", i+1, polymer.len());
-        }
+        polymer = propogate(&polymer, &map, steps);
+        println!("Length after step {}: {}", steps, polymer.len());
         let counts = analyse(&polymer);
         let min = counts.values().min().unwrap();
         let max = counts.values().max().unwrap();
@@ -52,16 +50,28 @@ impl FromStr for Propogation {
     }
 }
 
-fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char> ) -> Vec<char> {
+fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char>, steps: usize) -> Vec<char> {
     let mut previous = existing[0];
     let mut new = vec![previous];
     for i in 1..existing.len() {
         let next = existing[i];
-        if let Some(create) = propogations.get(&(previous, next)) {
-            new.push(*create);
-        }
+        new.append(&mut inner(previous, next, propogations, steps));
         new.push(next);
         previous = next;
+    }
+    new
+}
+
+fn inner(previous: char, next: char, propogations: &HashMap<(char, char), char>, steps: usize) -> Vec<char> {
+    let mut new = Vec::new();
+    if steps > 0 {
+        if let Some(&create) = propogations.get(&(previous, next)) {
+            new.append(&mut inner(previous, create, propogations, steps - 1));
+            new.push(create);
+            new.append(&mut inner(create, next, propogations, steps - 1));
+        } else {
+            // nothing gets added here
+        }
     }
     new
 }
