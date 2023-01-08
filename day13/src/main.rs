@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::str::FromStr;
 use std::collections::HashSet;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 struct Paper {
     dots: HashSet<Point>
@@ -28,8 +30,11 @@ fn main() {
         let mut paper: Paper = segments[0].parse().unwrap();
         let folds: Vec<Fold> = segments[1].lines().map(|l| l.parse().unwrap()).collect();
         println!("Initial dots: {}", paper.dots.len());
-        paper.fold(&folds[0]);
-        println!("After 1 fold: {}", paper.dots.len());
+        for i in 0..folds.len() {
+            paper.fold(&folds[i]);
+            println!("After {} folds: {}", i+1, paper.dots.len());
+        }
+        println!("{}", paper);
     } else {
         println!("Please provide 1 argument: Filename");
     }
@@ -88,5 +93,23 @@ impl Paper {
             });
         }
         self.dots = new_dots;
+    }
+}
+
+impl Display for Paper {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        let max_x = self.dots.iter().map(|p| p.x).max().unwrap();
+        let max_y = self.dots.iter().map(|p| p.y).max().unwrap();
+        for y in 0..(max_y+1) {
+            for x in 0..(max_x+1) {
+                write!(f, "{}", if self.dots.contains(&Point { x, y }) {
+                    "#"
+                } else {
+                    "."
+                })?;
+            }
+            write!(f, "\r\n")?;
+        }
+        Ok(())
     }
 }
