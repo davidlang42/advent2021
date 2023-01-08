@@ -24,8 +24,11 @@ fn main() {
         let mut grid: Grid = text.parse().unwrap();
         let rounds: usize = args[2].parse().unwrap();
         let mut flashes = 0;
-        for _ in 0..rounds {
+        for i in 0..rounds {
             let f = grid.increment_all();
+            if f.len() == grid.height * grid.width {
+                println!("All flashed in round {}", i+1);
+            }
             flashes += f.len();
         }
         println!("{} flashes after {} rounds", flashes, rounds);
