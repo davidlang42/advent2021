@@ -64,9 +64,7 @@ impl PropogationMap {
         for i in 1..template.len() {
             let next = template[i];
             increment(&mut counts, next, 1);
-            for (k, v) in self.inner(previous, next, steps) {
-                increment(&mut counts, k, v);
-            }
+            combine(&mut counts, &self.inner(previous, next, steps));
             previous = next;
         }
         counts
@@ -76,13 +74,9 @@ impl PropogationMap {
         let mut counts = HashMap::new();
         if steps > 0 {
             if let Some(&create) = self.0.get(&(previous, next)) {
-                for (k, v) in self.inner(previous, create, steps - 1) {
-                    increment(&mut counts, k, v);
-                }
+                combine(&mut counts, &self.inner(previous, create, steps - 1));
                 increment(&mut counts, create, 1);
-                for (k, v) in self.inner(create, next, steps - 1) {
-                    increment(&mut counts, k, v);
-                }
+                combine(&mut counts, &self.inner(create, next, steps - 1));
             } else {
                 // nothing gets added here
             }
@@ -96,5 +90,11 @@ fn increment(counts: &mut HashMap<char, usize>, key: char, delta: usize) {
         counts.insert(key, existing + delta);
     } else {
         counts.insert(key, delta);
+    }
+}
+
+fn combine(counts: &mut HashMap<char, usize>, with: &HashMap<char, usize>) {
+    for (&k, &v) in with {
+        increment(counts, k, v);
     }
 }
