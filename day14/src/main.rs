@@ -8,6 +8,8 @@ struct Propogation {
     create: char
 }
 
+struct PropogationMap(HashMap<(char, char), char>);
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 3 {
@@ -17,12 +19,9 @@ fn main() {
         let segments: Vec<&str> = text.split("\r\n\r\n").collect();
         let template: Vec<char> = segments[0].chars().collect();
         let propogations: Vec<Propogation> = segments[1].lines().map(|l| l.parse().unwrap()).collect();
-        let mut map = HashMap::new();
-        for propogation in propogations {
-            map.insert(propogation.pair, propogation.create);
-        }
+        let map = PropogationMap::new(&propogations);
         let steps: usize = args[2].parse().unwrap();
-        let counts = propogate(&template, &map, steps);
+        let counts = map.propogate(&template, steps);
         println!("Length after step {}: {}", steps, counts.values().sum::<usize>());
         let min = counts.values().min().unwrap();
         let max = counts.values().max().unwrap();
@@ -49,37 +48,47 @@ impl FromStr for Propogation {
     }
 }
 
-fn propogate(existing: &Vec<char>, propogations: &HashMap<(char, char), char>, steps: usize) -> HashMap<char, usize> {
-    let mut previous = existing[0];
-    let mut counts = HashMap::new();
-    increment(&mut counts, previous, 1);
-    for i in 1..existing.len() {
-        let next = existing[i];
-        increment(&mut counts, next, 1);
-        for (k, v) in inner(previous, next, propogations, steps) {
-            increment(&mut counts, k, v);
+impl PropogationMap {
+    fn new(propogations: &Vec<Propogation>) -> Self {
+        let mut map = HashMap::new();
+        for propogation in propogations {
+            map.insert(propogation.pair, propogation.create);
         }
-        previous = next;
+        PropogationMap(map)
     }
-    counts
-}
+    
+    fn propogate(&self, template: &Vec<char>, steps: usize) -> HashMap<char, usize> {
+        let mut previous = template[0];
+        let mut counts = HashMap::new();
+        increment(&mut counts, previous, 1);
+        for i in 1..template.len() {
+            let next = template[i];
+            increment(&mut counts, next, 1);
+            for (k, v) in self.inner(previous, next, steps) {
+                increment(&mut counts, k, v);
+            }
+            previous = next;
+        }
+        counts
+    }
 
-fn inner(previous: char, next: char, propogations: &HashMap<(char, char), char>, steps: usize) -> HashMap<char, usize> {
-    let mut counts = HashMap::new();
-    if steps > 0 {
-        if let Some(&create) = propogations.get(&(previous, next)) {
-            for (k, v) in inner(previous, create, propogations, steps - 1) {
-                increment(&mut counts, k, v);
+    fn inner(&self, previous: char, next: char, steps: usize) -> HashMap<char, usize> {
+        let mut counts = HashMap::new();
+        if steps > 0 {
+            if let Some(&create) = self.0.get(&(previous, next)) {
+                for (k, v) in self.inner(previous, create, steps - 1) {
+                    increment(&mut counts, k, v);
+                }
+                increment(&mut counts, create, 1);
+                for (k, v) in self.inner(create, next, steps - 1) {
+                    increment(&mut counts, k, v);
+                }
+            } else {
+                // nothing gets added here
             }
-            increment(&mut counts, create, 1);
-            for (k, v) in inner(create, next, propogations, steps - 1) {
-                increment(&mut counts, k, v);
-            }
-        } else {
-            // nothing gets added here
         }
+        counts
     }
-    counts
 }
 
 fn increment(counts: &mut HashMap<char, usize>, key: char, delta: usize) {
