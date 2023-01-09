@@ -5,7 +5,7 @@ use std::str::FromStr;
 struct Packet {
     version: u8,
     type_id: u8,
-    number: u32
+    number: u128
 }
 
 fn main() {
@@ -25,8 +25,7 @@ impl FromStr for Packet {
     type Err = String;
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let number = u32::from_str_radix(text, 16).unwrap();
-        let binary: String = format_radix(number, 2);
+        let binary = hex_to_binary(text);
         //110100101111111000101000
         //VVVTTTAAAAABBBBBCCCCC
         let binary_chars: Vec<char> = binary.chars().collect();
@@ -42,23 +41,36 @@ impl FromStr for Packet {
         Ok(Packet {
             version: u8::from_str_radix(&binary[0..2], 2).unwrap(),
             type_id: u8::from_str_radix(&binary[3..5], 2).unwrap(),
-            number: u32::from_str_radix(&num_str, 2).unwrap()
+            number: u128::from_str_radix(&num_str, 2).unwrap()
         })
     }
 }
 
-fn format_radix(mut x: u32, radix: u32) -> String {
+fn hex_to_binary(hex_str: &str) -> String {
     let mut result = vec![];
-
-    loop {
-        let m = x % radix;
-        x = x / radix;
-
-        // will panic if you use a bad radix (< 2 or > 36).
-        result.push(std::char::from_digit(m, radix).unwrap());
-        if x == 0 {
-            break;
+    for hex_c in hex_str.chars() {
+        let bin_str = match hex_c {
+            '0' => "0000",
+            '1' => "0001",
+            '2' => "0010",
+            '3' => "0011",
+            '4' => "0100",
+            '5' => "0101",
+            '6' => "0110",
+            '7' => "0111",
+            '8' => "1000",
+            '9' => "1001",
+            'A' => "1010",
+            'B' => "1011",
+            'C' => "1100",
+            'D' => "1101",
+            'E' => "1110",
+            'F' => "1111",
+            _ => panic!("Invalid char: {}", hex_c)
+        };
+        for bin_c in bin_str.chars() {
+            result.push(bin_c);
         }
     }
-    result.into_iter().rev().collect()
+    result.into_iter().collect()
 }
