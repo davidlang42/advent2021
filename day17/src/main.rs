@@ -1,6 +1,5 @@
 use std::env;
 use std::fs;
-use std::collections::HashSet;
 
 struct Point {
     x: isize,
@@ -30,30 +29,17 @@ fn main() {
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
         let target = parse_target_area(&text);
-        let mut vx = 0;
-        let mut vy = 0;
-        let mut tried_vx = HashSet::new();
+        let mut vy = target.min.y;
+        let mut count = 0;
         loop {
-            let mut probe = Probe::new(vx, vy);
-            tried_vx.insert(vx);
-            match probe.fire(&target) {
-                ProbeResult::MissedShort => {
-                    vx += 1;
-                },
-                ProbeResult::MissedLong => {
-                    vx -= 1;
-                },
-                ProbeResult::Hit { max_height } => {
-                    println!("HIT with a max height of {}, starting with ({}, {})", max_height, vx, vy);
-                    vy += 1;
-                    tried_vx.clear();
+            for vx in 0..(target.max.x+1) {
+                let mut probe = Probe::new(vx, vy);
+                if let ProbeResult::Hit { max_height } = probe.fire(&target) {
+                    count += 1;
+                    println!("HIT with a max height of {}, starting with ({}, {}), total count of {}", max_height, vx, vy, count);
                 }
             }
-            if tried_vx.contains(&vx) {
-                //println!("Impossible at vy of {}", vy);
-                vy += 1;
-                tried_vx.clear();
-            }
+            vy += 1;
         }
     } else {
         println!("Please provide 1 argument: Filename");
