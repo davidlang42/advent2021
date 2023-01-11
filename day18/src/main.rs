@@ -27,6 +27,19 @@ fn main() {
         }
         println!("Result: {}", result);
         println!("Magnitude: {}", result.magnitude());
+        let mut max_magnitude = 0;
+        for x in 0..numbers.len() {
+            for y in 0..numbers.len() {
+                if x != y {
+                    let result = Number::add(numbers[x].clone(), numbers[y].clone());
+                    let magnitude = result.magnitude();
+                    if magnitude > max_magnitude {
+                        max_magnitude = magnitude;
+                    }
+                }
+            }
+        }
+        println!("Best magnitude of 2 sum: {}", max_magnitude);
     } else {
         println!("Please provide 1 argument: Filename");
     }
