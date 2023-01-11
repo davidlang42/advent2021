@@ -9,16 +9,24 @@ enum Number {
     Pair(Box<Number>, Box<Number>)
 }
 
+struct Explosion {
+    left: Option<usize>,
+    right: Option<usize>
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 {
         let filename = &args[1];
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
-        let numbers: Vec<Number> = text.lines().map(|l| l.parse().unwrap()).collect();
+        let mut numbers = text.lines().map(|l| l.parse().unwrap());
+        let mut result = Number::add(numbers.next().unwrap(), numbers.next().unwrap());
         for number in numbers {
-            println!("{}", number);
+            result = Number::add(result, number);
         }
+        println!("Result: {}", result);
+        println!("Magnitude: {}", result.magnitude());
     } else {
         println!("Please provide 1 argument: Filename");
     }
@@ -58,4 +66,105 @@ fn find_real_comma(line: &str) -> Result<usize, String> {
         }
     }
     Err(format!("No real comma found, final depth {}", depth))
+}
+
+impl Number {
+    fn add(a: Number, b: Number) -> Number {
+        let mut n = Number::Pair(Box::new(a), Box::new(b));
+        while n.reduce() {}
+        n
+    }
+
+    fn reduce(&mut self) -> bool {
+        self.explode_nested_pair(4).is_some() || self.split_literal(10)
+    }
+
+    fn explode_nested_pair(&mut self, at_depth: usize) -> Option<Explosion> {
+        match self {
+            Number::Literal(_) => None,
+            Number::Pair(a, b) if at_depth == 0 => {
+                // explode
+                let a_value = a.as_literal().unwrap();
+                let b_value = b.as_literal().unwrap();
+                *self = Number::Literal(0);
+                Some(Explosion {
+                    left: Some(a_value),
+                    right: Some(b_value)
+                })
+            },
+            Number::Pair(a, b) => {
+                if let Some(explosion) = a.explode_nested_pair(at_depth - 1) {
+                    Some(b.consume_right(explosion))
+                } else if let Some(explosion) = b.explode_nested_pair(at_depth - 1) {
+                    Some(a.consume_left(explosion))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn consume_right(&mut self, explosion: Explosion) -> Explosion {
+        if let Some(right) = explosion.right {
+            match self {
+                Number::Literal(l) => {
+                    *l += right;
+                    Explosion {
+                        left: explosion.left,
+                        right: None
+                    }
+                },
+                Number::Pair(a, b) => {
+                    b.consume_right(a.consume_right(explosion))
+                }
+            }
+        } else {
+            explosion
+        }
+    }
+
+    fn consume_left(&mut self, explosion: Explosion) -> Explosion {
+        if let Some(left) = explosion.left {
+            match self {
+                Number::Literal(l) => {
+                    *l += left;
+                    Explosion {
+                        left: None,
+                        right: explosion.right
+                    }
+                },
+                Number::Pair(a, b) => {
+                    a.consume_left(b.consume_left(explosion))
+                }
+            }
+        } else {
+            explosion
+        }
+    }
+
+    fn split_literal(&mut self, min_value: usize) -> bool {
+        match self {
+            Number::Literal(l) if *l >= min_value => {
+                // split
+                *self = Number::Pair(Box::new(Number::Literal(*l/2)), Box::new(Number::Literal((*l+1)/2)));
+                true
+            },
+            Number::Literal(_) => false,
+            Number::Pair(a, b) => a.split_literal(min_value) || b.split_literal(min_value)
+        }
+    }
+
+    fn as_literal(&self) -> Option<usize> {
+        match self {
+            Number::Literal(l) => Some(*l),
+            Number::Pair(_, _) => None
+        }
+    }
+
+    fn magnitude(&self) -> usize {
+        match self {
+            Number::Literal(l) => *l,
+            Number::Pair(a, b) => 3 * a.magnitude() + 2 * b.magnitude()
+        }
+    }
 }
