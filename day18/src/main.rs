@@ -4,11 +4,9 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
-struct Pair(Number, Number);
-
 enum Number {
     Literal(usize),
-    Pair(Box<Pair>)
+    Pair(Box<Number>, Box<Number>)
 }
 
 fn main() {
@@ -17,26 +15,12 @@ fn main() {
         let filename = &args[1];
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
-        let pairs: Vec<Pair> = text.lines().map(|l| l.parse().unwrap()).collect();
-        for pair in pairs {
-            println!("{}", pair);
+        let numbers: Vec<Number> = text.lines().map(|l| l.parse().unwrap()).collect();
+        for number in numbers {
+            println!("{}", number);
         }
     } else {
         println!("Please provide 1 argument: Filename");
-    }
-}
-
-impl FromStr for Pair {
-    type Err = String;
-
-    fn from_str(line: &str) -> Result<Self, Self::Err> {
-        if line.len() > 2 && line[0..1] == *"[" && line[line.len()-1..line.len()] == *"]" {
-            let inner = &line[1..(line.len()-1)];
-            let comma = find_real_comma(&inner)?;
-            Ok(Pair(inner[0..comma].parse()?, inner[(comma+1)..].parse()?))
-        } else {
-            Err(format!("Not a pair: {}", line))
-        }
     }
 }
 
@@ -44,25 +28,21 @@ impl FromStr for Number {
     type Err = String;
 
     fn from_str(line: &str) -> Result<Self, Self::Err> {
-        if let Ok(literal) = usize::from_str(line) {
-            Ok(Number::Literal(literal))
+        if line.len() > 2 && line[0..1] == *"[" && line[line.len()-1..line.len()] == *"]" {
+            let inner = &line[1..(line.len()-1)];
+            let comma = find_real_comma(&inner)?;
+            Ok(Number::Pair(Box::new(inner[0..comma].parse()?), Box::new(inner[(comma+1)..].parse()?)))
         } else {
-            Ok(Number::Pair(Box::new(line.parse()?)))
+            Ok(Number::Literal(line.parse().map_err(|e| format!("{}: {}", e, line))?))
         }
-    }
-}
-
-impl Display for Pair {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "[{},{}]", self.0, self.1)
     }
 }
 
 impl Display for Number {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         match self {
-            Number::Literal(literal) => write!(f, "{}", literal),
-            Number::Pair(boxed_pair) => write!(f, "{}", boxed_pair),
+            Number::Literal(l) => write!(f, "{}", l),
+            Number::Pair(a, b) => write!(f, "[{},{}]", a, b),
         }
     }
 }
