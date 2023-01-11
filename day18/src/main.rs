@@ -20,10 +20,10 @@ fn main() {
         let filename = &args[1];
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
-        let mut numbers = text.lines().map(|l| l.parse().unwrap());
-        let mut result = Number::add(numbers.next().unwrap(), numbers.next().unwrap());
-        for number in numbers {
-            result = Number::add(result, number);
+        let numbers: Vec<Number> = text.lines().map(|l| l.parse().unwrap()).collect();
+        let mut result = Number::add(numbers[0].clone(), numbers[1].clone());
+        for i in 2..numbers.len() {
+            result = Number::add(result, numbers[i].clone());
         }
         println!("Result: {}", result);
         println!("Magnitude: {}", result.magnitude());
@@ -165,6 +165,16 @@ impl Number {
         match self {
             Number::Literal(l) => *l,
             Number::Pair(a, b) => 3 * a.magnitude() + 2 * b.magnitude()
+        }
+    }
+}
+
+impl Clone for Number
+{
+    fn clone(&self) -> Self {
+        match self {
+            Number::Literal(l) => Number::Literal(*l),
+            Number::Pair(a, b) => Number::Pair(Box::new(*a.clone()), Box::new(*b.clone()))
         }
     }
 }
