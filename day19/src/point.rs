@@ -40,23 +40,19 @@ impl Point {
                     step.x_left().x_left()
                 }
             },
-            Direction::X(true) => {
-                match from.facing {
+            Direction::X(b) => {
+                let step = match from.facing {
                     Direction::Y(false) => *self,
                     Direction::Z(true) => self.x_left(),
                     Direction::Y(true) => self.x_left().x_left(),
                     Direction::Z(false) => self.x_left().x_left().x_left(),
                     _ => panic!("Invalid orientation")
-                }.z_left()
-            },
-            Direction::X(false) => {
-                match from.facing {
-                    Direction::Y(true) => *self,
-                    Direction::Z(false) => self.x_left(),
-                    Direction::Y(false) => self.x_left().x_left(),
-                    Direction::Z(true) => self.x_left().x_left().x_left(),
-                    _ => panic!("Invalid orientation")
-                }.z_left().z_left().z_left()
+                }.z_left();
+                if b {
+                    step
+                } else {
+                    step.x_left().x_left()
+                }
             },
             Direction::Z(b) => {
                 let step = match from.facing {
