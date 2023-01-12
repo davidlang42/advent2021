@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -10,7 +10,8 @@ pub struct Point {
 }
 
 struct Image {
-    pixels: HashSet<Point>
+    pixels: HashMap<Point, bool>,
+    edge: bool
 }
 
 struct Enhancer {
@@ -50,58 +51,67 @@ impl FromStr for Image {
     type Err = String;
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let mut pixels = HashSet::new();
+        let mut pixels = HashMap::new();
         for (y, line) in text.lines().enumerate() {
             for (x, c) in line.chars().enumerate() {
-                if c == '#' {
-                    pixels.insert(Point {
-                        x: x as isize,
-                        y: y as isize
-                    });
-                }
+                pixels.insert(Point {
+                    x: x as isize,
+                    y: y as isize
+                }, c == '#');
             }
         }
-        Ok(Self { pixels })
+        Ok(Self {
+            pixels,
+            edge: false
+        })
     }
 }
 
 impl Image {
     fn lit_pixels(&self) -> usize {
-        self.pixels.len()
+        self.pixels.values().filter(|&v| *v).count()
     }
 
     fn bounds(&self) -> (Point, Point) {
         (Point {
-            x: self.pixels.iter().map(|p| p.x).min().unwrap(),
-            y: self.pixels.iter().map(|p| p.y).min().unwrap()
+            x: self.pixels.keys().map(|p| p.x).min().unwrap(),
+            y: self.pixels.keys().map(|p| p.y).min().unwrap()
         },
         Point {
-            x: self.pixels.iter().map(|p| p.x).max().unwrap(),
-            y: self.pixels.iter().map(|p| p.y).max().unwrap()
+            x: self.pixels.keys().map(|p| p.x).max().unwrap(),
+            y: self.pixels.keys().map(|p| p.y).max().unwrap()
         })
     }
 
     fn get(&self, point: &Point) -> bool {
-        self.pixels.contains(point)
+        if let Some(value) = self.pixels.get(point) {
+            *value
+        } else {
+            self.edge
+        }
     }
 }
 
 impl Enhancer {
     fn enhance(&self, image: &Image) -> Image {
-        let mut new_pixels = HashSet::new();
+        let mut new_pixels = HashMap::new();
         let (min, max) = image.bounds();
         for x in (min.x-1)..(max.x+2) {
             for y in (min.y-1)..(max.y+2) {
                 let p = Point { x, y };
                 let binary_index: String = p.adjacent().iter().map(|p| if image.get(p) { '1' } else { '0' }).collect();
                 let decimal_index = usize::from_str_radix(&binary_index, 2).unwrap();
-                if self.data[decimal_index] {
-                    new_pixels.insert(p);
-                }
+                new_pixels.insert(p, self.data[decimal_index]);
             }
         }
+        let new_edge = if image.edge {
+            self.data[511]
+        } else {
+            self.data[0]
+        };
         Image {
-            pixels: new_pixels
+            pixels: new_pixels,
+            edge: new_edge
         }
     }
 }
