@@ -26,34 +26,43 @@ impl Point {
     fn rotate(&self, from: &Orientation) -> Point {
         // rotate around 0,0,0 into BASE orientation
         match from.up {
-            Direction::Y(_) => {
-                match from.facing {
-                    Direction::X(true) => *self,
+            Direction::Y(b) => {
+                let step = match from.facing {
+                    Direction::X(true) => *self,//_+
                     Direction::Z(true) => self.y_left(),
                     Direction::X(false) => self.y_left().y_left(),
-                    Direction::Z(false) => self.y_left().y_left().y_left(),
+                    Direction::Z(false) => self.y_left().y_left().y_left(),//_+
                     _ => panic!("Invalid orientation")
-                }
-            },
-            Direction::X(b) => {
-                let step = match from.facing {
-                    Direction::Y(false) => *self,
-                    Direction::Z(true) => self.x_left(),
-                    Direction::Y(true) => self.x_left().x_left(),
-                    Direction::Z(false) => self.x_left().x_left().x_left(),
-                    _ => panic!("Invalid orientation")
-                }.z_left();
+                };
                 if b {
                     step
                 } else {
                     step.x_left().x_left()
                 }
-            }
+            },
+            Direction::X(true) => {
+                match from.facing {
+                    Direction::Y(false) => *self,
+                    Direction::Z(true) => self.x_left(),
+                    Direction::Y(true) => self.x_left().x_left(),
+                    Direction::Z(false) => self.x_left().x_left().x_left(),
+                    _ => panic!("Invalid orientation")
+                }.z_left()
+            },
+            Direction::X(false) => {
+                match from.facing {
+                    Direction::Y(true) => *self,
+                    Direction::Z(false) => self.x_left(),
+                    Direction::Y(false) => self.x_left().x_left(),
+                    Direction::Z(true) => self.x_left().x_left().x_left(),
+                    _ => panic!("Invalid orientation")
+                }.z_left().z_left().z_left()
+            },
             Direction::Z(b) => {
                 let step = match from.facing {
                     Direction::X(true) => *self,
-                    Direction::Y(false) => self.z_left(),
-                    Direction::X(false) => self.z_left().z_left(),
+                    Direction::Y(false) => self.z_left(),//b+
+                    Direction::X(false) => self.z_left().z_left(),//b-
                     Direction::Y(true) => self.z_left().z_left().z_left(),
                     _ => panic!("Invalid orientation")
                 }.x_left();
