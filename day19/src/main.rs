@@ -47,6 +47,18 @@ fn main() {
         }
         let absolute_beacons: HashSet<Point> = found.iter().flat_map(|s| s.absolute_beacons()).collect();
         println!("Total beacons: {}", absolute_beacons.len());
+        let mut max_distance = 0;
+        for a in 0..found.len() {
+            for b in 0..found.len() {
+                if a != b {
+                    let distance = found[a].frame.as_ref().unwrap().position.manhatten_distance(&found[b].frame.as_ref().unwrap().position);
+                    if distance > max_distance {
+                        max_distance = distance;
+                    }
+                }
+            }
+        }
+        println!("Max distance: {}", max_distance);
     } else {
         println!("Please provide 1 argument: Filename");
     }

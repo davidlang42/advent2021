@@ -103,6 +103,10 @@ impl Point {
             z: self.z - rotated.z
         }
     }
+
+    pub fn manhatten_distance(&self, other: &Point) -> usize {
+        self.x.abs_diff(other.x) + self.y.abs_diff(other.y) + self.z.abs_diff(other.z)
+    }
 }
 
 impl FromStr for Point {
