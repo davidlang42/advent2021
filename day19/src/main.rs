@@ -194,13 +194,28 @@ impl Scanner {
 }
 
 impl Point {
-    fn absolute(&self, reference_position: &Point, _reference_orientation: &Orientation) -> Point {
-        //TODO handle orientation
+    fn absolute(&self, reference_position: &Point, reference_orientation: &Orientation) -> Point {
+        let rotated = self.rotate(reference_orientation);
         Point {
-            x: reference_position.x + self.x,
-            y: reference_position.y + self.y,
-            z: reference_position.z + self.z
+            x: reference_position.x + rotated.x,
+            y: reference_position.y + rotated.y,
+            z: reference_position.z + rotated.z
         }
+    }
+
+    fn rotate(&self, from: &Orientation) -> Point {
+        // rotate around 0,0,0 into BASE orientation
+        // fn pos(b: bool) -> isize {
+        //     if b { 1 } else { -1 }
+        // }
+        // fn neg(b: bool) -> isize {
+        //     if b { -1 } else { 1 }
+        // }
+        // match (from.facing, from.up) {
+        //     (Direction::X(a), Direction::Y(b)) => Point { x: pos(a)*self.x, y: pos(b)*self.y, z: pos(a)*pos(b)*self.z },
+        //     (Direction::X(a), Direction::Z(b)) => Point { x: pos(a)*self.x, y: neg(b)*self.z, z: pos(b)*self.y },
+        //     _ => todo!()
+        // }
     }
 
     fn offset(&self, absolute_position: &Point, _reference_orientation: &Orientation) -> Point {
