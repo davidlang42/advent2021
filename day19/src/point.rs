@@ -46,7 +46,7 @@ impl Point {
                 if b {
                     step
                 } else {
-                    step.z_left().z_left()
+                    step.x_left().x_left()
                 }
             }
             Direction::Z(b) => {
