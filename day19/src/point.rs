@@ -28,10 +28,10 @@ impl Point {
         match from.up {
             Direction::Y(b) => {
                 let step = match from.facing {
-                    Direction::X(true) => *self,//_+
+                    Direction::X(true) => *self,
                     Direction::Z(true) => self.y_left(),
                     Direction::X(false) => self.y_left().y_left(),
-                    Direction::Z(false) => self.y_left().y_left().y_left(),//_+
+                    Direction::Z(false) => self.y_left().y_left().y_left(),
                     _ => panic!("Invalid orientation")
                 };
                 if b {
@@ -57,8 +57,8 @@ impl Point {
             Direction::Z(b) => {
                 let step = match from.facing {
                     Direction::X(true) => *self,
-                    Direction::Y(false) => self.z_left(),//b+
-                    Direction::X(false) => self.z_left().z_left(),//b-
+                    Direction::Y(false) => self.z_left(),
+                    Direction::X(false) => self.z_left().z_left(),
                     Direction::Y(true) => self.z_left().z_left().z_left(),
                     _ => panic!("Invalid orientation")
                 }.x_left();
@@ -95,13 +95,13 @@ impl Point {
         }
     }
 
-    pub fn offset(&self, absolute_position: &Point, _reference_orientation: &Orientation) -> Point {
-        todo!();
-        // Point {
-        //     x: absolute_position.x - self.x,
-        //     y: absolute_position.y - self.y,
-        //     z: absolute_position.z - self.z
-        // }
+    pub fn offset(&self, position: &Point, orientation: &Orientation) -> Point {
+        let rotated = position.rotate(orientation);
+        Point {
+            x: self.x - rotated.x,
+            y: self.y - rotated.y,
+            z: self.z - rotated.z
+        }
     }
 }
 

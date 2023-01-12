@@ -5,58 +5,53 @@ use std::str::FromStr;
 use std::collections::HashSet;
 use crate::Point;
 use crate::FrameOfReference;
+use crate::Orientation;
 
 pub struct Scanner {
     name: String,
-    frame: Option<FrameOfReference>,
-    pub beacons: Vec<Point>//TODO
+    pub frame: Option<FrameOfReference>,
+    beacons: Vec<Point>
 }
 
 impl Scanner {
-    // fn find_frame(&self, known: &Scanner, min_common_points: usize) -> Option<FrameOfReference> {
-    //     if known.frame.is_none() {
-    //         panic!("Cannot find a frame of reference without a known frame");
-    //     }
-    //     for orientation in Orientation::all() {
-    //         if let Some(position) = find_common_points(known, self, min_common_points, &orientation) {
-    //             return Some((position, orientation));
-    //         }
-    //     }
-    //     None
-    // }
+    pub fn find_frame(&self, known: &Scanner, min_common_points: usize) -> Option<FrameOfReference> {
+        if let Some(known_frame) = &known.frame {
+            for orientation in Orientation::all() {
+                let possible_positions = known.find_all_offsets(&self.beacons, &orientation);
+                for position in possible_positions {
+                    let potential_frame = FrameOfReference { position, orientation: orientation.clone() };
+                    let mut count = 0;
+                    for kb in &known.beacons {
+                        let kb_absolute = kb.absolute(known_frame);
+                        for ub in &self.beacons {
+                            if kb_absolute == ub.absolute(&potential_frame) {
+                                count += 1;
+                                break;
+                            }
+                        }
+                        if count >= min_common_points {
+                            return Some(potential_frame);
+                        }
+                    }
+                }
+            }
+            None
+        } else {
+            panic!("Cannot find a frame without a known frame of reference");
+        }
+    }
 
-    // fn find_common_points(source: &Scanner, unknown: &Scanner, min_common_points: usize, orientation: &Orientation) -> Option<Point> {
-    //     let possible_positions = find_all_offsets(&source.beacons, &unknown.beacons, orientation);
-    //     for position in possible_positions {
-    //         let mut count = 0;
-    //         for sb in &source.beacons {
-    //             let sb_absolute = sb.absolute(&source.position.unwrap(), &source.orientation.unwrap());
-    //             for ub in &unknown.beacons {
-    //                 if sb_absolute == ub.absolute(&position, orientation) {
-    //                     count += 1;
-    //                     break;
-    //                 }
-    //             }
-    //             if count >= min_common_points {
-    //                 return Some(position);
-    //             }
-    //         }
-    //     }
-    //     None
-    // }
+    fn find_all_offsets(&self, unknown: &Vec<Point>, orientation: &Orientation) -> HashSet<Point> {
+        let mut set = HashSet::new();
+        for k in self.absolute_beacons() {
+            for u in unknown {
+                set.insert(k.offset(u, orientation));
+            }
+        }
+        set
+    }
 
-    // fn find_all_offsets(a_vec: &Vec<Point>, b_vec: &Vec<Point>, _orientation: &Orientation) -> HashSet<Point> {
-    //     let mut set = HashSet::new();
-    //     for a in a_vec {
-    //         for b in b_vec {
-    //             //TODO handle orientation
-    //             set.insert(a.offset(b, _orientation));
-    //         }
-    //     }
-    //     set
-    // }
-
-    fn absolute_beacons(&self) -> Vec<Point> {
+    pub fn absolute_beacons(&self) -> Vec<Point> {
         if let Some(frame) = &self.frame {
             self.beacons.iter().map(|b| b.absolute(frame)).collect()
         } else {

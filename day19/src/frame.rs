@@ -8,6 +8,7 @@ pub struct FrameOfReference {
     pub orientation: Orientation
 }
 
+#[derive(Clone)]
 pub struct Orientation {
     pub facing: Direction,
     pub up: Direction
@@ -18,6 +19,13 @@ pub enum Direction {
     X(bool),
     Y(bool),
     Z(bool)
+}
+
+impl FrameOfReference {
+    pub const BASE: FrameOfReference = Self {
+        orientation: Orientation::BASE,
+        position: Point { x: 0, y: 0, z: 0 }
+    };
 }
 
 impl Orientation {
