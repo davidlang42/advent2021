@@ -3,7 +3,7 @@ use std::fs;
 use std::str::FromStr;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use pathfinding::prelude::bfs;
+use pathfinding::prelude::astar;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 enum Amphipod {
@@ -143,6 +143,69 @@ impl Display for State {
     }
 }
 
+impl State {
+    fn complete(&self) -> bool {
+        for hallway in self.hallway {
+            if hallway.is_some() {
+                return false;
+            }
+        }
+        for option_room in self.rooms {
+            if let Some(room) = option_room {
+                for slot in room.slots {
+                    match slot {
+                        Some(amphipod) => if amphipod != room.required {
+                            return false;
+                        },
+                        None => return false
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    fn minimum_cost_to_complete(&self) -> usize {
+        let mut cost = 0;
+        for h in 0..self.hallway.len() {
+            if let Some(amphipod) = self.hallway[h] {
+                let required_room_index = self.room_index_for(&amphipod);
+                let minimum_moves = h.abs_diff(required_room_index) + 1;
+                cost += minimum_moves * amphipod.energy();
+            }
+        }
+        for r in 0..self.rooms.len() {
+            if let Some(room) = self.rooms[r] {
+                for s in 0..room.slots.len() {
+                    if let Some(amphipod) = room.slots[s] {
+                        if amphipod != room.required {
+                            let required_room_index = self.room_index_for(&amphipod);
+                            let minimum_moves = s + 1 + r.abs_diff(required_room_index) + 1;
+                            cost += minimum_moves * amphipod.energy();
+                        }
+                    }
+                }
+            }
+        }
+        cost
+    }
+
+    fn room_index_for(&self, amphipod: &Amphipod) -> usize {
+        for i in 0..self.rooms.len() {
+            if let Some(room) = self.rooms[i] {
+                if room.required == *amphipod {
+                    return i;
+                }
+            }
+        }
+        panic!("Room not found for Amphipod: {}", amphipod);
+    }
+
+    fn possible_moves(&self) -> Vec<(State, usize)> {
+        todo!("business logic here")
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 {
@@ -150,7 +213,11 @@ fn main() {
         let text = fs::read_to_string(&filename)
             .expect(&format!("Error reading from {}", filename));
         let state: State = text.parse().unwrap();
-        println!("{}", state);
+        let (path, energy_cost) = astar(&state, |s| s.possible_moves(), |s| s.minimum_cost_to_complete(), |s| s.complete()).expect("no solution found");
+        for s in &path {
+            println!("{}\n", s);
+        }
+        println!("Completed in {} moves with a total energy cost of {}", path.len() - 1, energy_cost);
     } else {
         println!("Please provide 1 argument: Filename");
     }
