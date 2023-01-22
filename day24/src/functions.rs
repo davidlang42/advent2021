@@ -34,4 +34,36 @@ impl Function {
             Function::Operation(f1, _op, f2) => f1.depth().max(f2.depth()) + 1
         }
     }
+
+    pub fn to_literal(&self) -> Option<isize> {
+        if let Function::Literal(l) = self {
+            Some(*l)
+        } else {
+            None
+        }
+    }
+
+    pub fn literal_out_of_input_range(&self) -> bool {
+        if let Function::Literal(l) = self {
+            *l < 1 || *l > 9
+        } else {
+            false
+        }
+    }
+
+    pub fn is_input(&self) -> bool {
+        if let Function::Input(_i) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn _evaluate(&self, inputs: &Vec<usize>) -> isize {
+        match self {
+            Function::Literal(l) => *l,
+            Function::Input(i) => *inputs.get(*i).expect("Ran out of inputs") as isize,
+            Function::Operation(f1, op, f2) => op.operate(f1._evaluate(inputs), f2._evaluate(inputs))
+        }
+    }
 }

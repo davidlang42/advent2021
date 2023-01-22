@@ -136,12 +136,21 @@ impl FunctionalArithmeticLogicUnit {
                     self.set(var.clone(), match op {
                         Operator::Add if a.is_literal(0) => b.clone(),
                         Operator::Add if b.is_literal(0) => a,
+                        Operator::Multiply if a.is_literal(0) || b.is_literal(0) => Function::Literal(0),
                         Operator::Multiply if a.is_literal(1) => b.clone(),
                         Operator::Multiply if b.is_literal(1) => a,
                         Operator::Divide if b.is_literal(1) => a,
                         Operator::Divide if a == *b => Function::Literal(1),
                         Operator::Equal if a == *b => Function::Literal(1),
-                        _ => Function::Operation(Box::new(a), op.clone(), Box::new(b.clone()))
+                        Operator::Equal if a.is_input() && b.literal_out_of_input_range() => Function::Literal(0),
+                        Operator::Equal if b.is_input() && a.literal_out_of_input_range() => Function::Literal(0),
+                        _ => {
+                            if let (Some(a_literal), Some(b_literal)) = (a.to_literal(), b.to_literal()) {
+                                Function::Literal(op.operate(a_literal, b_literal))
+                            } else {
+                                Function::Operation(Box::new(a), op.clone(), Box::new(b.clone()))
+                            }
+                        }
                     });
                 }
             }
