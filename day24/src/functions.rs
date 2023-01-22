@@ -27,6 +27,14 @@ impl Function {
         }
     }
 
+    pub fn is_operation(&self, operator: &Operator) -> bool {
+        if let Function::Operation(_f1, op, _f2) = self {
+            operator == op
+        } else {
+            false
+        }
+    }
+
     pub fn depth(&self) -> usize {
         match self {
             Function::Literal(_l) => 1,

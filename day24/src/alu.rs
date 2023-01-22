@@ -145,7 +145,8 @@ impl FunctionalArithmeticLogicUnit {
                         Operator::Equal if a.is_input() && b.literal_out_of_input_range() => Function::Literal(0),
                         Operator::Equal if b.is_input() && a.literal_out_of_input_range() => Function::Literal(0),
                         Operator::Equal if a.cannot_be_equal_to(b) => Function::Literal(0),
-                        Operator::Equal if a.to_literal().is_some() && a.to_literal() == b.to_literal() => Function::Literal(1),
+                        Operator::Equal if a.is_operation(&Operator::Equal) && b.is_literal(1) => a,
+                        Operator::Equal if b.is_operation(&Operator::Equal) && a.is_literal(1) => a,
                         Operator::Modulo if a.must_be_less_than(b) => a,
                         _ => {
                             if let (Some(a_literal), Some(b_literal)) = (a.to_literal(), b.to_literal()) {
