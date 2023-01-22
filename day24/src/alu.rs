@@ -98,9 +98,16 @@ impl FunctionalArithmeticLogicUnit {
         }
     }
 
-    pub fn get(&self, var: &Variable) -> Function {
+    pub fn get(&self, var: &Variable) -> &Function {
         match self.variables.get(var) {
-            Some(existing_function) => existing_function.clone(),
+            Some(existing_function) => existing_function,
+            None => &Function::Literal(0)
+        }
+    }
+
+    fn remove(&mut self, var: &Variable) -> Function {
+        match self.variables.remove(var) {
+            Some(existing_function) => existing_function,
             None => Function::Literal(0)
         }
     }
@@ -117,20 +124,24 @@ impl FunctionalArithmeticLogicUnit {
                     self.input_counter += 1;
                 },
                 Instruction::Operation(var, op, exp) => {
-                    let a = self.get(var);
+                    let a = self.remove(var);
+                    let tmp;
                     let b = match exp {
                         Expression::Variable(b_var) => self.get(b_var),
-                        Expression::Literal(b_literal) => Function::Literal(*b_literal)
+                        Expression::Literal(b_literal) => {
+                            tmp = Function::Literal(*b_literal);
+                            &tmp
+                        }
                     };
                     self.set(var.clone(), match op {
-                        Operator::Add if a.is_literal(0) => b,
+                        Operator::Add if a.is_literal(0) => b.clone(),
                         Operator::Add if b.is_literal(0) => a,
-                        Operator::Multiply if a.is_literal(1) => b,
+                        Operator::Multiply if a.is_literal(1) => b.clone(),
                         Operator::Multiply if b.is_literal(1) => a,
                         Operator::Divide if b.is_literal(1) => a,
-                        Operator::Divide if a == b => Function::Literal(1),
-                        Operator::Equal if a == b => Function::Literal(1),
-                        _ => Function::Operation(Box::new(a), op.clone(), Box::new(b))
+                        Operator::Divide if a == *b => Function::Literal(1),
+                        Operator::Equal if a == *b => Function::Literal(1),
+                        _ => Function::Operation(Box::new(a), op.clone(), Box::new(b.clone()))
                     });
                 }
             }
