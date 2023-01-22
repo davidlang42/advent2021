@@ -39,8 +39,8 @@ fn main() {
         // determine function
         let mut func_alu = FunctionalArithmeticLogicUnit::new();
         for (i, instruction) in instructions.iter().enumerate() {
-            println!("Running functional instruction #{}", i);
             func_alu.run(instruction);
+            println!("After functional instruction #{}, Z functional depth is {}", i, func_alu.get(&Variable::Z).depth());
         }
         println!("Z = {}", func_alu.get(&Variable::Z));
     } else {

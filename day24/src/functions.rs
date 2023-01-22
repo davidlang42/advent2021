@@ -26,4 +26,12 @@ impl Function {
             false
         }
     }
+
+    pub fn depth(&self) -> usize {
+        match self {
+            Function::Literal(_l) => 1,
+            Function::Input(_i) => 1,
+            Function::Operation(f1, _op, f2) => f1.depth().max(f2.depth()) + 1
+        }
+    }
 }
