@@ -1,6 +1,7 @@
 
 use std::str::FromStr;
 
+#[derive(Clone)]
 pub enum Operator {
     Add,
     Multiply,
@@ -17,11 +18,13 @@ pub enum Variable {
     Z
 }
 
+#[derive(Clone)]
 pub enum Expression {
     Variable(Variable),
     Literal(isize)
 }
 
+#[derive(Clone)]
 pub enum Instruction {
     Input(Variable),
     Operation(Variable, Operator, Expression)
@@ -105,6 +108,24 @@ impl Operator {
                 a % b // negative numbers are disallowed
             },
             Self::Equal => if a == b { 1 } else { 0 }
+        }
+    }
+}
+
+impl Instruction {
+    pub fn redundant(&self) -> bool {
+        match self {
+            Instruction::Operation(_var, op, Expression::Literal(l)) => {
+                match op {
+                    Operator::Add => *l == 0,
+                    Operator::Multiply => *l == 1,
+                    Operator::Divide => *l == 1,
+                    Operator::Modulo => false,
+                    Operator::Equal => false
+                }
+            },
+            Instruction::Operation(_var1, _op, Expression::Variable(_var2)) => false,
+            Instruction::Input(_) => false
         }
     }
 }

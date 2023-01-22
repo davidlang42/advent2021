@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque, HashSet};
 use crate::instructions::{Instruction, Variable, Expression};
 
 pub struct ArithmeticLogicUnit {
@@ -36,6 +36,49 @@ impl ArithmeticLogicUnit {
                 };
                 let new_value = op.operate(a, b);
                 self.set(var.clone(), new_value);
+            }
+        }
+    }
+}
+
+pub struct ReverseArithmeticLogicUnit {
+    required_variables: HashSet<Variable>,
+    pub required_inputs: HashSet<usize>,
+    pub required_instructions: VecDeque<Instruction>,
+    input_counter: isize
+}
+
+impl ReverseArithmeticLogicUnit {
+    pub fn new(total_inputs: usize, required_variable: Variable) -> Self {
+        Self {
+            input_counter: total_inputs as isize - 1,
+            required_variables: HashSet::from([required_variable]),
+            required_inputs: HashSet::new(),
+            required_instructions: VecDeque::new()
+        }
+    }
+
+    pub fn trace_back(&mut self, instruction: &Instruction) {
+        match instruction {
+            Instruction::Input(var) => {
+                if self.input_counter < 0 {
+                    panic!("Ran out of inputs");
+                }
+                if self.required_variables.remove(var) {
+                    self.required_inputs.insert(self.input_counter as usize);
+                    self.required_instructions.push_front(instruction.clone());
+                }
+                self.input_counter -= 1;
+            },
+            Instruction::Operation(var, _op, exp) => {
+                if self.required_variables.contains(var) {
+                    if let Expression::Variable(another_variable) = exp {
+                        self.required_variables.insert(another_variable.clone());
+                    }
+                    if !instruction.redundant() {
+                        self.required_instructions.push_front(instruction.clone());
+                    }
+                }
             }
         }
     }
