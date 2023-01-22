@@ -42,7 +42,11 @@ fn main() {
             func_alu.run(instruction);
             println!("After functional instruction #{}, Z functional depth is {}", i, func_alu.get(&Variable::Z).depth());
         }
-        println!("Z = {}", func_alu.get(&Variable::Z));
+        let func = func_alu.get(&Variable::Z);
+        let func_display = format!("{}", func);
+        println!("Z = {}", func_display);
+        println!("Z = [{}]", func_display.len());
+        println!("Program required {} of {} inputs: {:?}", func.refers_to_inputs().len(), input_count, func.refers_to_inputs());
     } else {
         println!("Please provide 1 argument: Filename");
     }
