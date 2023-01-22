@@ -13,16 +13,19 @@ enum Amphipod {
     Desert
 }
 
+const ROOM_SLOTS: usize = 2;
+const HALLWAY_WIDTH: usize = 11;
+
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 struct Room {
     required: Amphipod,
-    slots: [Option<Amphipod>; 2]
+    slots: [Option<Amphipod>; ROOM_SLOTS]
 }
 
 #[derive(Hash, Eq, PartialEq, Clone)]
 struct State {
-    hallway: [Option<Amphipod>; 11],
-    rooms: [Option<Room>; 11]
+    hallway: [Option<Amphipod>; HALLWAY_WIDTH],
+    rooms: [Option<Room>; HALLWAY_WIDTH]
 }
 
 impl Amphipod {
@@ -104,31 +107,31 @@ impl FromStr for State {
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         let lines: Vec<&str> = text.lines().collect();
-        if lines.len() == 5 {
-            if lines[2].len() < 11 {
-                Err(format!("Expected at least 11 chars in 3rd line: {}", lines[2]))
-            } else if lines[3].len() < 11 {
-                Err(format!("Expected at least 11 chars in 4th line: {}", lines[3]))
-            } else {
-                let mut rooms = [None; 11];
-                for amphipod_index in 0..4 {
-                    let room_index = 2 * amphipod_index + 2; // 2,4,6,8
-                    let char_index = room_index + 1; //3,5,7,9
-                    rooms[room_index] = Some(Room {
-                        required: Amphipod::from_usize(amphipod_index)?,
-                        slots: [
-                            Some(Amphipod::from_char(lines[2].chars().nth(char_index).unwrap())?),
-                            Some(Amphipod::from_char(lines[3].chars().nth(char_index).unwrap())?),
-                        ]
-                    });
+        if lines.len() == 3 + ROOM_SLOTS  {
+            for s in 0..ROOM_SLOTS {
+                if lines[s+2].len() < HALLWAY_WIDTH {
+                    return Err(format!("Expected at least {} chars in line {}: {}", HALLWAY_WIDTH, s+3, lines[s+2]))
                 }
-                Ok(Self {
-                    hallway: [None; 11],
-                    rooms
-                })
             }
+            let mut rooms = [None; HALLWAY_WIDTH];
+            for amphipod_index in 0..4 {
+                let room_index = 2 * amphipod_index + 2; // 2,4,6,8
+                let char_index = room_index + 1; //3,5,7,9
+                let mut slots = [None; ROOM_SLOTS];
+                for s in 0..ROOM_SLOTS {
+                    slots[s] = Some(Amphipod::from_char(lines[s+2].chars().nth(char_index).unwrap())?);
+                }
+                rooms[room_index] = Some(Room {
+                    required: Amphipod::from_usize(amphipod_index)?,
+                    slots
+                });
+            }
+            Ok(Self {
+                hallway: [None; HALLWAY_WIDTH],
+                rooms
+            })
         } else {
-            Err(format!("Expected 5 lines: {}", text))
+            Err(format!("Expected {} lines: {}", 3 + ROOM_SLOTS, text))
         }
     }
 }
@@ -217,12 +220,19 @@ impl State {
     }
 
     fn possible_moves(&self) -> Vec<(State, usize)> {
-        // ASSUMED: If an amphipod is in slot 0 of the correct room and slot 1 is free, it will move all the way in immediately, because it can't possibly help not to.
+        // ASSUMED: If an amphipod is in a slot of the correct room but the next slot down is free, it will move all the way in immediately, because it can't possibly help not to.
         for r in 0..self.rooms.len() {
             if let Some(room) = self.rooms[r] {
-                let [outer, inner] = room.slots;
-                if outer == Some(room.required) && inner == None {
-                    return vec![self.move_in_room(r, 0, 1).unwrap()];
+                for s in (0..room.slots.len()).rev() {
+                    if let Some(amphipod_in_room) = room.slots[s] {
+                        if amphipod_in_room == room.required {
+                            if let Some(valid_move) = self.move_in_room(r, s, s + 1) {
+                                return vec![valid_move];
+                            }
+                        } else {
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -341,7 +351,7 @@ impl State {
     }
 
     fn move_in_room(&self, room_index: usize, from_slot_index: usize, to_slot_index: usize) -> Option<(State, usize)> {
-        if room_index >= self.rooms.len() || self.rooms[room_index].is_none() || self.rooms[room_index].unwrap().slots[from_slot_index].is_none() || self.rooms[room_index].unwrap().slots[to_slot_index].is_some() {
+        if room_index >= self.rooms.len() || self.rooms[room_index].is_none() || from_slot_index >= self.rooms[room_index].unwrap().slots.len() || to_slot_index >= self.rooms[room_index].unwrap().slots.len() || self.rooms[room_index].unwrap().slots[from_slot_index].is_none() || self.rooms[room_index].unwrap().slots[to_slot_index].is_some() {
             None
         } else {
             let mut rooms = self.rooms.clone();
