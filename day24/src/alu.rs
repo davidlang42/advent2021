@@ -1,5 +1,6 @@
 use std::collections::{HashMap, VecDeque, HashSet};
-use crate::instructions::{Instruction, Variable, Expression};
+use crate::instructions::{Instruction, Variable, Expression, Operator};
+use crate::functions::Function;
 
 pub struct ArithmeticLogicUnit {
     variables: HashMap<Variable, isize>,
@@ -78,6 +79,59 @@ impl ReverseArithmeticLogicUnit {
                     if !instruction.redundant() {
                         self.required_instructions.push_front(instruction.clone());
                     }
+                }
+            }
+        }
+    }
+}
+
+pub struct FunctionalArithmeticLogicUnit {
+    variables: HashMap<Variable, Function>,
+    input_counter: usize
+}
+
+impl FunctionalArithmeticLogicUnit {
+    pub fn new() -> Self {
+        Self {
+            variables: HashMap::new(),
+            input_counter: 0
+        }
+    }
+
+    pub fn get(&self, var: &Variable) -> Function {
+        match self.variables.get(var) {
+            Some(existing_function) => existing_function.clone(),
+            None => Function::Literal(0)
+        }
+    }
+
+    fn set(&mut self, var: Variable, value: Function) {
+        self.variables.insert(var, value);
+    }
+
+    pub fn run(&mut self, instruction: &Instruction) {
+        if !instruction.redundant() {
+            match instruction {
+                Instruction::Input(var) => {
+                    self.set(var.clone(), Function::Input(self.input_counter));
+                    self.input_counter += 1;
+                },
+                Instruction::Operation(var, op, exp) => {
+                    let a = self.get(var);
+                    let b = match exp {
+                        Expression::Variable(b_var) => self.get(b_var),
+                        Expression::Literal(b_literal) => Function::Literal(*b_literal)
+                    };
+                    self.set(var.clone(), match op {
+                        Operator::Add if a.is_literal(0) => b,
+                        Operator::Add if b.is_literal(0) => a,
+                        Operator::Multiply if a.is_literal(1) => b,
+                        Operator::Multiply if b.is_literal(1) => a,
+                        Operator::Divide if b.is_literal(1) => a,
+                        Operator::Divide if a == b => Function::Literal(1),
+                        Operator::Equal if a == b => Function::Literal(1),
+                        _ => Function::Operation(Box::new(a), op.clone(), Box::new(b))
+                    });
                 }
             }
         }

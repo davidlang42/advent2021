@@ -4,9 +4,10 @@ use std::collections::VecDeque;
 
 mod instructions;
 mod alu;
+mod functions;
 
 use crate::instructions::{Instruction, Variable};
-use crate::alu::{ArithmeticLogicUnit, ReverseArithmeticLogicUnit};
+use crate::alu::{ArithmeticLogicUnit, ReverseArithmeticLogicUnit, FunctionalArithmeticLogicUnit};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -35,6 +36,13 @@ fn main() {
         }
         println!("Program required {} of {} inputs: {:?}", rev_alu.required_inputs.len(), input_count, rev_alu.required_inputs);
         println!("Program required {} of {} instructions", rev_alu.required_instructions.len(), instructions.len());
+        // determine function
+        let mut func_alu = FunctionalArithmeticLogicUnit::new();
+        for (i, instruction) in instructions.iter().enumerate() {
+            println!("Running functional instruction #{}", i);
+            func_alu.run(instruction);
+        }
+        println!("Z = {}", func_alu.get(&Variable::Z));
     } else {
         println!("Please provide 1 argument: Filename");
     }

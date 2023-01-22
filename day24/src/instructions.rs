@@ -1,7 +1,8 @@
 
 use std::str::FromStr;
+use std::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Operator {
     Add,
     Multiply,
@@ -42,6 +43,18 @@ impl FromStr for Operator {
             "eql" => Ok(Self::Equal),
             _ => Err(format!("Invalid operator: {}", word))
         }
+    }
+}
+
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Add => "+",
+            Self::Multiply => "*",
+            Self::Divide => "/",
+            Self::Modulo => "%",
+            Self::Equal => "==",
+        })
     }
 }
 
