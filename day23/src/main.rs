@@ -13,7 +13,7 @@ enum Amphipod {
     Desert
 }
 
-const ROOM_SLOTS: usize = 2;
+const ROOM_SLOTS: usize = 4;
 const HALLWAY_WIDTH: usize = 11;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
