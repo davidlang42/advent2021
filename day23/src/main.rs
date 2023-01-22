@@ -66,21 +66,6 @@ impl Amphipod {
             Amphipod::Desert => 'D'
         }
     }
-
-    fn will_enter(&self, room: &Room) -> bool {
-        // PROVIDED: Amphipods will never move from the hallway into a room unless that room is their destination room and that room contains no amphipods which do not also have that room as their own destination.
-        if room.required != *self {
-            return false;
-        }
-        for slot in room.slots {
-            if let Some(existing_amphipod) = slot {
-                if existing_amphipod != *self {
-                    return false;
-                }
-            }
-        }
-        room.slots[0].is_none()
-    }
 }
 
 impl FromStr for Amphipod {
@@ -161,6 +146,32 @@ impl Display for State {
     }
 }
 
+impl Room {
+    fn complete(&self) -> bool {
+        for slot in self.slots {
+            match slot {
+                Some(amphipod) => if amphipod != self.required {
+                    return false;
+                },
+                None => return false
+            }
+        }
+        true
+    }
+
+    fn valid(&self) -> bool {
+        for slot in self.slots {
+            match slot {
+                Some(amphipod) => if amphipod != self.required {
+                    return false;
+                },
+                None => {}
+            }
+        }
+        true
+    }
+}
+
 impl State {
     fn complete(&self) -> bool {
         for hallway in self.hallway {
@@ -170,13 +181,8 @@ impl State {
         }
         for option_room in self.rooms {
             if let Some(room) = option_room {
-                for slot in room.slots {
-                    match slot {
-                        Some(amphipod) => if amphipod != room.required {
-                            return false;
-                        },
-                        None => return false
-                    }
+                if !room.complete() {
+                    return false;
                 }
             }
         }
@@ -220,75 +226,25 @@ impl State {
     }
 
     fn possible_moves(&self) -> Vec<(State, usize)> {
-        // ASSUMED: If an amphipod is in a slot of the correct room but the next slot down is free, it will move all the way in immediately, because it can't possibly help not to.
-        for r in 0..self.rooms.len() {
-            if let Some(room) = self.rooms[r] {
-                for s in (0..room.slots.len()).rev() {
-                    if let Some(amphipod_in_room) = room.slots[s] {
-                        if amphipod_in_room == room.required {
-                            if let Some(valid_move) = self.move_in_room(r, s, s + 1) {
-                                return vec![valid_move];
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        let mut moves = Vec::new();
         // PROVIDED: Amphipods will never stop on the space immediately outside any room. They can move into that space so long as they immediately continue moving.
         for h in 0..self.hallway.len() {
-            if let (Some(amphipod_in_hallway), Some(outside_room)) = (self.hallway[h], self.rooms[h]) {
-                if amphipod_in_hallway.will_enter(&outside_room) {
-                    return vec![self.enter_room(h).unwrap()]; // ASSUMED: If an amphipod can move into its correct room, it will do so immediately, because it can't possibly help not to.
-                } else {
-                    let mut moves = Vec::new();
-                    if let Some(valid_move) = self.move_in_hallway(h, h as isize - 1) {
+            for r in 0..self.rooms.len() {
+                if let (Some(_amphipod_in_hallway), Some(_into_room)) = (self.hallway[h], self.rooms[r]) {
+                    if let Some(valid_move) = self.enter_room(h, r) {
                         moves.push(valid_move);
-                    }
-                    if let Some(valid_move) = self.move_in_hallway(h, h as isize + 1) {
-                        moves.push(valid_move);
-                    }
-                    if moves.len() > 0 {
-                        return moves;
-                    } else {
-                        //panic!("It is not allowed to stop on the space immediately outside a room");
                     }
                 }
             }
         }
-        // PROVIDED: Once an amphipod stops moving in the hallway, it will stay in that spot until it can move into a room. (That is, once any amphipod starts moving, any other amphipods currently in the hallway are locked in place and will not move again until they can move fully into a room.)
-        //TODO not sure how to enforce this, but maybe it doesn't matter?
-        let mut moves = Vec::new();
-        for h in 0..self.hallway.len() {
-            if let Some(_amphipod_in_hallway_not_outside_room) = self.hallway[h] {
-                if let Some(valid_move) = self.move_in_hallway(h, h as isize - 1) {
-                    moves.push(valid_move);
-                }
-                if let Some(valid_move) = self.move_in_hallway(h, h as isize + 1) {
-                    moves.push(valid_move);
-                }
-            }
-        }
+        // PROVIDED: If an amphipod's starting room is not its destination room, it can stay in that room until it leaves the room.
         for r in 0..self.rooms.len() {
             if let Some(room) = self.rooms[r] {
-                let mut wrong_amphipod_found = false;
-                for s in (0..room.slots.len()).rev() {
-                    if let Some(amphipod_in_room) = room.slots[s] {
-                        if amphipod_in_room != room.required {
-                            wrong_amphipod_found = true;
-                        }
-                    }
-                    if wrong_amphipod_found {
-                        if s == 0 {
-                            if let Some(valid_move) = self.exit_room(r) {
-                                moves.push(valid_move);
-                            }
-                        } else {
-                            if let Some(valid_move) = self.move_in_room(r, s, s - 1) {
-                                moves.push(valid_move);
-                            }
-                        }
+                for s in 0..room.slots.len() {
+                    if let Some(_amphipod_in_room) = room.slots[s] {
+                        let mut possible_exits = self.exit_room(r, s);
+                        moves.append(&mut possible_exits);
+                        break; // nothing below this can move
                     }
                 }
             }
@@ -296,76 +252,85 @@ impl State {
         moves
     }
 
-    fn enter_room(&self, from_hallway_index: usize) -> Option<(State, usize)> {
-        if from_hallway_index >= self.hallway.len() || self.hallway[from_hallway_index].is_none() || self.rooms[from_hallway_index].is_none() || self.rooms[from_hallway_index].unwrap().slots[0].is_some() {
-            None
+    // PROVIDED: Amphipods will never move from the hallway into a room unless that room is their destination room and that room contains no amphipods which do not also have that room as their own destination.
+    // ASSUMED: If an amphipod is entering the correct room, it will move all the way in immediately, because it can't possibly help not to.
+    fn enter_room(&self, from_hallway_index: usize, into_room_index: usize) -> Option<(State, usize)> {
+        let amphipod_in_hallway = self.hallway[from_hallway_index].expect("invalid hall index");
+        let into_room = self.rooms[into_room_index].expect("invalid room index");
+        if into_room.required != amphipod_in_hallway || !into_room.valid() {
+            return None; // not the right room, or room has wrong amphipods
+        }
+        let hallway_range = if from_hallway_index > into_room_index {
+            into_room_index..from_hallway_index
         } else {
-            let mut hallway = self.hallway.clone();
-            let mut rooms = self.rooms.clone();
-            let amphipod_to_move = self.hallway[from_hallway_index];
-            let energy = amphipod_to_move.unwrap().energy();
-            let mut new_room = rooms[from_hallway_index].unwrap();
-            new_room.slots[0] = amphipod_to_move;
-            rooms[from_hallway_index] = Some(new_room);
-            hallway[from_hallway_index] = None;
-            Some((Self {
-                hallway,
-                rooms
-            }, energy))
+            (from_hallway_index + 1)..(into_room_index + 1)
+        };
+        for h in hallway_range {
+            if self.hallway[h].is_some() {
+                return None; // movement blocked
+            }
+        }
+        let mut free_slot = None;
+        for s in 0..into_room.slots.len() {
+            match into_room.slots[s] {
+                None => free_slot = Some(s),
+                Some(_) => break
+            }
+        }
+        if let Some(slot) = free_slot {
+            let movements = from_hallway_index.abs_diff(into_room_index) + 1 + slot;
+            let energy = amphipod_in_hallway.energy() * movements;
+            let mut new_state = self.clone();
+            *new_state.hallway.get_mut(from_hallway_index).unwrap() = None;
+            *new_state.rooms.get_mut(into_room_index).unwrap().as_mut().unwrap().slots.get_mut(slot).unwrap() = Some(amphipod_in_hallway);
+            Some((new_state, energy))
+        } else {
+            None // no free slot
         }
     }
 
-    fn exit_room(&self, from_room_index: usize) -> Option<(State, usize)> {
-        if from_room_index >= self.rooms.len() || self.hallway[from_room_index].is_some() || self.rooms[from_room_index].is_none() || self.rooms[from_room_index].unwrap().slots[0].is_none() {
-            None
-        } else {
-            let mut hallway = self.hallway.clone();
-            let mut rooms = self.rooms.clone();
-            let amphipod_to_move = self.rooms[from_room_index].unwrap().slots[0];
-            let energy = amphipod_to_move.unwrap().energy();
-            let mut new_room = rooms[from_room_index].unwrap();
-            new_room.slots[0] = None;
-            rooms[from_room_index] = Some(new_room);
-            hallway[from_room_index] = amphipod_to_move;
-            Some((Self {
-                hallway,
-                rooms
-            }, energy))
+    // PROVIDED: Once an amphipod stops moving in the hallway, it will stay in that spot until it can move into a room. (That is, once any amphipod starts moving, any other amphipods currently in the hallway are locked in place and will not move again until they can move fully into a room.)
+    // THEREFORE: When an amphipod exits a room, you have a choice of where in the hallway it will stop (as long as thats not in front of any room)
+    fn exit_room(&self, from_room_index: usize, from_slot_index: usize) -> Vec<(State, usize)> {
+        let from_room = self.rooms[from_room_index].expect("invalid room index");
+        let amphipod_in_room = from_room.slots[from_slot_index].expect("invalid slot index");
+        if from_room.required == amphipod_in_room && from_room.valid() {
+            return Vec::new(); // already in the correct room with only correct amphipods
         }
+        for s in 0..from_slot_index {
+            if from_room.slots[s].is_some() {
+                return Vec::new(); // movement blocked
+            }
+        }
+        let free_hallway_left = self.free_hallway(from_room_index, -1);
+        let free_hallway_right = self.free_hallway(from_room_index, 1);
+        let mut valid_moves = Vec::new();
+        for free_hallway in [free_hallway_left, free_hallway_right].concat() {
+            // PROVIDED: Amphipods will never stop on the space immediately outside any room. They can move into that space so long as they immediately continue moving.
+            if self.rooms[free_hallway].is_none() {
+                let movements = from_slot_index + 1 + from_room_index.abs_diff(free_hallway);
+                let energy = amphipod_in_room.energy() * movements;
+                let mut new_state = self.clone();
+                *new_state.hallway.get_mut(free_hallway).unwrap() = Some(amphipod_in_room);
+                *new_state.rooms.get_mut(from_room_index).unwrap().as_mut().unwrap().slots.get_mut(from_slot_index).unwrap() = None;
+                valid_moves.push((new_state, energy));
+            }
+        }
+        valid_moves
     }
 
-    fn move_in_hallway(&self, from_hallway_index: usize, to_hallway_index: isize) -> Option<(State, usize)> {
-        if from_hallway_index >= self.hallway.len() || to_hallway_index < 0 || to_hallway_index as usize >= self.hallway.len() || self.hallway[from_hallway_index].is_none() || self.hallway[to_hallway_index as usize].is_some() {
-            None
-        } else {
-            let mut hallway = self.hallway.clone();
-            let amphipod_to_move = self.hallway[from_hallway_index];
-            let energy = amphipod_to_move.unwrap().energy();
-            hallway[from_hallway_index] = None;
-            hallway[to_hallway_index as usize] = amphipod_to_move;
-            Some((Self {
-                hallway,
-                rooms: self.rooms.clone()
-            }, energy))
+    fn free_hallway(&self, starting: usize, delta: isize) -> Vec<usize> {
+        let mut result = Vec::new();
+        let mut h = starting as isize + delta; // intentionally skip the starting value
+        while h >= 0 && (h as usize) < self.hallway.len() {
+            if self.hallway[h as usize].is_some() {
+                break; // hallway blocked
+            } else {
+                result.push(h as usize);
+            }
+            h += delta;
         }
-    }
-
-    fn move_in_room(&self, room_index: usize, from_slot_index: usize, to_slot_index: usize) -> Option<(State, usize)> {
-        if room_index >= self.rooms.len() || self.rooms[room_index].is_none() || from_slot_index >= self.rooms[room_index].unwrap().slots.len() || to_slot_index >= self.rooms[room_index].unwrap().slots.len() || self.rooms[room_index].unwrap().slots[from_slot_index].is_none() || self.rooms[room_index].unwrap().slots[to_slot_index].is_some() {
-            None
-        } else {
-            let mut rooms = self.rooms.clone();
-            let mut new_room = rooms[room_index].unwrap();
-            let amphipod_to_move = new_room.slots[from_slot_index];
-            let energy = amphipod_to_move.unwrap().energy();
-            new_room.slots[from_slot_index] = None;
-            new_room.slots[to_slot_index] = amphipod_to_move;
-            rooms[room_index] = Some(new_room);
-            Some((Self {
-                rooms,
-                hallway: self.hallway.clone()
-            }, energy))
-        }
+        result
     }
 }
 
