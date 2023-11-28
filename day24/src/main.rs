@@ -29,10 +29,10 @@ fn main() {
     }
 }
 
-fn brute_force(func: &Function) {
+fn brute_force(instructions: &Vec<Instruction>, func: &Function) {
     let mut count = 0;
-    let factor = 100.0/((9.0_f64).powf(6.0));
-    for a in (1 as usize..10 as usize).rev() {
+    let factor = 100.0/((9.0_f64).powf(9.0));
+    for a in (1 as isize..10).rev() {
         for b in (1..10).rev() {
             for c in (1..10).rev() {
                 for d in (1..10).rev() {
@@ -46,7 +46,8 @@ fn brute_force(func: &Function) {
                                                 for l in (1..10).rev() {
                                                     for m in (1..10).rev() {
                                                         for n in (1..10).rev() {
-                                                            if func._evaluate(&vec![a, b, c, d, e, f, g, h, i, j, k, l, m, n]) == 0 {
+                                                            //if func._evaluate(&vec![a, b, c, d, e, f, g, h, i, j, k, l, m, n]) == 0 {
+                                                            if test_model_number([a, b, c, d, e, f, g, h, i, j, k, l, m, n], instructions) {
                                                                 println!("VALID: {}{}{}{}{}{}{}{}{}{}{}{}{}{}", a, b, c, d, e, f, g, h, i, j, k, l, m, n);
                                                                 return;
                                                             }
@@ -55,11 +56,11 @@ fn brute_force(func: &Function) {
                                                 }
                                             }
                                         }
+                                        count += 1;
+                                        println!("{:.4}%", (count as f64)*factor);
                                     }
                                 }
                             }
-                            count += 1;
-                            println!("{:.4}%", (count as f64)*factor);
                         }
                     }
                 }
