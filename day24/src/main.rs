@@ -5,6 +5,7 @@ mod instructions;
 mod alu;
 mod functions;
 
+use functions::Function;
 use instructions::Variable;
 
 use crate::alu::FunctionalArithmeticLogicUnit;
@@ -19,18 +20,19 @@ fn main() {
             .expect(&format!("Error reading from {}", filename));
         let instructions: Vec<Instruction> = text.lines().map(|l| l.parse().unwrap()).collect();
 
-        //brute_force(&instructions);
-        simplify(&instructions);
+        let func_alu = simplify(&instructions);
+        let func = func_alu.get(&Variable::Z);
+        brute_force(&instructions, func);
         
     } else {
         println!("Please provide 1 argument: Filename");
     }
 }
 
-fn brute_force(instructions: &Vec<Instruction>) {
+fn brute_force(func: &Function) {
     let mut count = 0;
     let factor = 100.0/((9.0_f64).powf(6.0));
-    for a in (1..10).rev() {
+    for a in (1 as usize..10 as usize).rev() {
         for b in (1..10).rev() {
             for c in (1..10).rev() {
                 for d in (1..10).rev() {
@@ -44,7 +46,7 @@ fn brute_force(instructions: &Vec<Instruction>) {
                                                 for l in (1..10).rev() {
                                                     for m in (1..10).rev() {
                                                         for n in (1..10).rev() {
-                                                            if test_model_number([a, b, c, d, e, f, g, h, i, j, k, l, m, n], instructions) {
+                                                            if func._evaluate(&vec![a, b, c, d, e, f, g, h, i, j, k, l, m, n]) == 0 {
                                                                 println!("VALID: {}{}{}{}{}{}{}{}{}{}{}{}{}{}", a, b, c, d, e, f, g, h, i, j, k, l, m, n);
                                                                 return;
                                                             }
@@ -75,7 +77,7 @@ fn test_model_number(inputs: [isize; 14], instructions: &Vec<Instruction>) -> bo
     alu.get(&Variable::Z) == 0
 }
 
-fn simplify(instructions: &Vec<Instruction>) {
+fn simplify(instructions: &Vec<Instruction>) -> FunctionalArithmeticLogicUnit {
     let mut func_alu = FunctionalArithmeticLogicUnit::new();
     for (i, instruction) in instructions.iter().enumerate() {
         func_alu.run(instruction);
@@ -85,4 +87,5 @@ fn simplify(instructions: &Vec<Instruction>) {
     let func_display = format!("{}", func);
     //println!("Z = {}", func_display);
     println!("Z = [{}]", func_display.len());
+    func_alu
 }
