@@ -6,6 +6,7 @@ mod instructions;
 mod alu;
 mod functions;
 
+use crate::functions::Solution;
 use crate::instructions::{Instruction, Variable};
 use crate::alu::{ArithmeticLogicUnit, ReverseArithmeticLogicUnit, FunctionalArithmeticLogicUnit};
 
@@ -47,6 +48,14 @@ fn main() {
         println!("Z = {}", func_display);
         println!("Z = [{}]", func_display.len());
         println!("Program required {} of {} inputs: {:?}", func.refers_to_inputs().len(), input_count, func.refers_to_inputs());
+        // solve for Z == 0
+        let solutions = Solution::new().find(func, 0, true, 0);
+        for (i, s) in solutions.into_iter().enumerate() {
+            println!("--- Solution #{}:", i+1);
+            for (input, digit) in s.inputs.iter().enumerate() {
+                println!("I{{{}}} = {:?}", input, digit.possibilities())
+            }
+        }
     } else {
         println!("Please provide 1 argument: Filename");
     }
